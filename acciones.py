@@ -14,8 +14,20 @@ from . import clima, geometria as geo
 from .datos import PALETTE, WIND_COLORS, run_step
 
 
+# ==============================================================================
+# EXCEPTION MÉTIER AVEC TRADUCTION AUTOMATIQUE DES MESSAGES
+# Permet de traduire immédiatement tout message d'erreur ou d'avertissement
+# destiné à l'utilisateur vers sa langue active (Français par défaut).
+# ==============================================================================
 class SiteError(Exception):
-    """Algo que el usuario debe saber (se muestra tal cual)."""
+    """Alerte contextuelle pour l'utilisateur, traduite automatiquement."""
+    def __init__(self, message: str, *args, **kwargs) -> None:
+        try:
+            from .i18n import tr  # Contexte d'exécution plugin
+        except ImportError:
+            from i18n import tr   # Contexte autonome
+        # Traduction de la chaîne avant transmission à la classe Exception de base
+        super().__init__(tr(str(message)), *args, **kwargs)
 
 
 def _new_id(prefix: str) -> str:

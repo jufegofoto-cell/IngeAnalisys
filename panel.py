@@ -24,6 +24,10 @@ from PySide6.QtWidgets import (
 
 from views.fold_section import FoldSection, narrow, wrapping_form
 
+try:
+    from .i18n import tr, definir_langue_active, obtenir_langue_courante, LANGUES_SUPPORTEES
+except ImportError:
+    from i18n import tr, definir_langue_active, obtenir_langue_courante, LANGUES_SUPPORTEES
 from . import acciones as act
 from . import clima, exportar, geometria as geo, herramientas, solar
 from .dibujo import legend_rows
@@ -32,27 +36,52 @@ from .graficos import MonthChart, RoseChart
 _SET = "analisis_sitio/"
 
 ICONS = (
-    ("★", "estrella destacado"), ("📍", "punto marcador"), ("🌳", "árbol parque"),
-    ("🏠", "vivienda casa"), ("🏫", "colegio escuela"), ("🎓", "universidad"),
-    ("🏥", "hospital salud"), ("✚", "centro de salud"), ("🏛", "institucional"),
-    ("⛪", "iglesia templo"), ("🛒", "comercio mercado"), ("🍴", "restaurante"),
-    ("☕", "café"), ("🚌", "bus parada"), ("🚇", "metro"), ("🚉", "estación tren"),
-    ("🚲", "bicicleta ciclovía"), ("🅿", "parqueadero"), ("⛽", "gasolina"),
-    ("✈", "aeropuerto"), ("⚓", "puerto"), ("⚽", "deporte cancha"),
-    ("💧", "agua"), ("🌊", "río quebrada"), ("⛰", "montaña cerro"),
-    ("🌬", "viento"), ("☀", "sol"), ("☂", "lluvia"), ("🔊", "ruido"),
-    ("👁", "visual remate"), ("⚠", "riesgo amenaza"), ("⚡", "energía"),
-    ("🏭", "industria"), ("🗑", "residuos"), ("♿", "accesible"),
-    ("⚑", "bandera hito"), ("🛈", "información"),
+    ("★", "estrella destacado etoile favori star featured"),
+    ("📍", "punto marcador point repere pin marker"),
+    ("🌳", "árbol parque arbre park tree nature"),
+    ("🏠", "vivienda casa maison logement home house"),
+    ("🏫", "colegio escuela ecole lycee school education"),
+    ("🎓", "universidad universite campus university"),
+    ("🏥", "hospital salud hopital sante hospital health"),
+    ("✚", "centro de salud dispensaire clinique medical clinic"),
+    ("🏛", "institucional monument mairie public civic"),
+    ("⛪", "iglesia templo eglise culte church temple"),
+    ("🛒", "comercio mercado commerce marche market shop"),
+    ("🍴", "restaurante restaurant dining food"),
+    ("☕", "café coffee bistro"),
+    ("🚌", "bus parada arret bus stop"),
+    ("🚇", "metro subway tube"),
+    ("🚉", "estación tren gare train station"),
+    ("🚲", "bicicleta ciclovía velo piste cyclable bike"),
+    ("🅿", "parqueadero parking stationnement car park"),
+    ("⛽", "gasolina carburant essence gas station"),
+    ("✈", "aeropuerto aeroport avion airport plane"),
+    ("⚓", "puerto port marina harbour"),
+    ("⚽", "deporte cancha terrain sport stadium"),
+    ("💧", "agua eau source water"),
+    ("🌊", "río quebrada fleuve riviere river sea"),
+    ("⛰", "montaña cerro montagne relief mountain hill"),
+    ("🌬", "viento vent air wind"),
+    ("☀", "sol soleil solar sun"),
+    ("☂", "lluvia pluie rain umbrella"),
+    ("🔊", "ruido bruit nuisance sound noise"),
+    ("👁", "visual remate vue perspective view landmark"),
+    ("⚠", "riesgo amenaza risque danger hazard warning"),
+    ("⚡", "energía energie electricite power energy"),
+    ("🏭", "industria industrie usine factory industry"),
+    ("🗑", "residuos dechets poubelle waste trash"),
+    ("♿", "accesible prm accessibilite accessible prm"),
+    ("⚑", "bandera hito drapeau repere flag milestone"),
+    ("🛈", "información info accueil information"),
 )
 
 
 def _section(title: str, key: str, default_open: bool = False) -> FoldSection:
-    return FoldSection(title, _SET + "open_" + key, default_open=default_open)
+    return FoldSection(tr(title), _SET + "open_" + key, default_open=default_open)
 
 
 def _hint(text: str) -> QLabel:
-    lbl = QLabel(text)
+    lbl = QLabel(tr(text))
     lbl.setWordWrap(True)
     lbl.setStyleSheet("color: palette(mid); font-size: 11px;")
     return lbl
@@ -118,7 +147,7 @@ def _row(*widgets, stretch_last=False) -> QHBoxLayout:
     h.setContentsMargins(0, 0, 0, 0)
     for i, w in enumerate(widgets):
         if isinstance(w, str):
-            w = QLabel(w)
+            w = QLabel(tr(w))
         h.addWidget(w, 1 if (stretch_last and i == len(widgets) - 1) else 0)
     if not stretch_last:
         h.addStretch(1)
@@ -203,6 +232,8 @@ class SitePanel(QWidget):
         outer.addWidget(scroll)
         self._scroll = scroll
 
+        # Sélecteur de langue multilingue
+        self._build_lang()
         # El orden de la pestaña (1 → 11).
         self._build_epw()           # 1  Cargar archivo EPW
         self._build_location()      # 2  Ubicación
@@ -301,7 +332,7 @@ class SitePanel(QWidget):
         sec = _section("4 · ☀  Fecha, hora y sombras", "time", True)
         g = QGridLayout(sec.body)
         g.setContentsMargins(6, 6, 6, 6)
-        g.addWidget(QLabel("Fecha"), 1, 0)
+        g.addWidget(QLabel(tr("Fecha")), 1, 0)
         self.doy = QSlider(Qt.Horizontal)
         self.doy.setRange(1, 365)
         self.doy.valueChanged.connect(self._on_doy)
@@ -309,7 +340,7 @@ class SitePanel(QWidget):
         self.doy_lbl = QLabel("")
         self.doy_lbl.setMinimumWidth(52)
         g.addWidget(self.doy_lbl, 1, 2)
-        g.addWidget(QLabel("Hora"), 2, 0)
+        g.addWidget(QLabel(tr("Hora")), 2, 0)
         self.hour = QSlider(Qt.Horizontal)
         self.hour.setRange(0, 24 * 4 - 1)
         self.hour.valueChanged.connect(self._on_hour)
@@ -326,15 +357,15 @@ class SitePanel(QWidget):
             b.clicked.connect(lambda _c=False, d=doy: self.sitio.set_when(doy=d))
             quick.addWidget(b, i // 2, i % 2)
         g.addLayout(quick, 3, 0, 1, 3)
-        self.anim_btn = QPushButton("▶  Animar recorrido solar")
+        self.anim_btn = QPushButton(tr("▶  Animar recorrido solar"))
         self.anim_btn.setCheckable(True)
         self.anim_btn.clicked.connect(self._on_anim)
         g.addWidget(self.anim_btn, 4, 0, 1, 3)
-        self.shadow_on = QCheckBox("Sombras proyectadas (sol real)")
+        self.shadow_on = QCheckBox(tr("Sombras proyectadas (sol real)"))
         self.shadow_on.toggled.connect(
             lambda on: None if self._busy else self.sitio.set_shadows(on))
         g.addWidget(self.shadow_on, 5, 0, 1, 3)
-        g.addWidget(QLabel("Oscuridad"), 6, 0)
+        g.addWidget(QLabel(tr("Oscuridad")), 6, 0)
         self.shadow_dark = QSlider(Qt.Horizontal)
         self.shadow_dark.setRange(0, 80)
         self.shadow_dark.valueChanged.connect(self._on_dark)
@@ -371,7 +402,7 @@ class SitePanel(QWidget):
         self.geo_q = QLineEdit()
         self.geo_q.setPlaceholderText("Buscar dirección o pegar «lat, lon»")
         self.geo_q.returnPressed.connect(self._on_search)
-        b = QPushButton("Buscar")
+        b = QPushButton(tr("Buscar"))
         b.clicked.connect(self._on_search)
         lay.addLayout(_row(self.geo_q, b, stretch_last=False))
         self.geo_res = QListWidget()
@@ -380,27 +411,27 @@ class SitePanel(QWidget):
         self.geo_res.itemActivated.connect(self._on_result)
         self.geo_res.itemClicked.connect(self._on_result)
         lay.addWidget(self.geo_res)
-        pick = QPushButton("Elegir en el mapa…")
+        pick = QPushButton(tr("Elegir en el mapa…"))
         pick.clicked.connect(self._on_pick_map)
         lay.addWidget(pick)
         form = wrapping_form(None)
         self.site_name = self._bind(QLineEdit(), ["site_name"])
-        form.addRow("Nombre", self.site_name)
+        form.addRow(tr("Nombre"), self.site_name)
         self.lat = _dspin(-90, 90, 0.0001, 6)
         self.lon = _dspin(-180, 180, 0.0001, 6)
-        form.addRow("Latitud", self.lat)
-        form.addRow("Longitud", self.lon)
-        apply = QPushButton("Aplicar coordenadas")
+        form.addRow(tr("Latitud"), self.lat)
+        form.addRow(tr("Longitud"), self.lon)
+        apply = QPushButton(tr("Aplicar coordenadas"))
         apply.clicked.connect(self._on_apply_latlon)
         form.addRow("", apply)
         self.tz = QComboBox()
-        self.tz.addItem("Automática (por longitud)", None)
+        self.tz.addItem(tr("Automática (por longitud)"), None)
         for off in range(-12, 15):
             self.tz.addItem(f"UTC{off:+03d}:00", off)
         self.tz.currentIndexChanged.connect(
             lambda _i: None if self._busy else self.sitio.set_tz(
                 self.tz.currentData()))
-        form.addRow("Zona horaria", self.tz)
+        form.addRow(tr("Zona horaria"), self.tz)
         lay.addLayout(form)
         narrow(self.tz, self.lat, self.lon)
         self.loc_hint = _hint("")
@@ -478,14 +509,46 @@ class SitePanel(QWidget):
         self._set_site(self.lat.value(), self.lon.value())
 
     # ---- 1 · Clima (EPW) ---------------------------------------------------------
+    def _build_lang(self) -> None:
+        """Ajoute un sélecteur de langue intuitif en haut du panneau."""
+        from PySide6.QtCore import QSettings
+        from PySide6.QtWidgets import QHBoxLayout, QLabel, QComboBox
+        h = QHBoxLayout()
+        h.setContentsMargins(4, 2, 4, 4)
+        lbl = QLabel(tr("🌐 Langue :") if tr("🌐 Langue :") != "🌐 Langue :" else "🌐 Langue / Idioma:")
+        lbl.setStyleSheet("font-size: 11px; color: palette(mid); font-weight: bold;")
+        combo = QComboBox()
+        combo.addItem(tr("Français"), "fr")
+        combo.addItem(tr("Español"), "es")
+        combo.addItem(tr("English"), "en")
+        
+        actuelle = obtenir_langue_courante()
+        idx = combo.findData(actuelle)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+            
+        def on_lang_changed(index):
+            code = combo.itemData(index)
+            definir_langue_active(code)
+            QSettings().setValue("analisis_sitio/language", code)
+            self.schedule_refresh()
+            if hasattr(self.app, "viewport") and self.app.viewport:
+                self.app.viewport.update()
+                
+        combo.currentIndexChanged.connect(on_lang_changed)
+        h.addWidget(lbl)
+        h.addWidget(combo)
+        h.addStretch(1)
+        self._lay.addLayout(h)
+
     def _build_epw(self) -> None:
         sec = _section("1 · ☁  Cargar archivo EPW", "epw", True)
         lay = QVBoxLayout(sec.body)
         lay.setContentsMargins(6, 6, 6, 6)
-        b = QPushButton("Abrir archivo EPW…")
+        b = QPushButton(tr("Abrir archivo EPW…"))
         b.clicked.connect(self._on_open_epw)
         lay.addWidget(b)
-        self.epw_use_loc = QCheckBox("Usar la ubicación del EPW para el sitio")
+        self.epw_use_loc = QCheckBox(tr("Usar la ubicación del EPW para el sitio"))
         self.epw_use_loc.setChecked(True)
         lay.addWidget(self.epw_use_loc)
         self.epw_none = _hint("EPW gratis en climate.onebuilding.org o "
@@ -497,7 +560,7 @@ class SitePanel(QWidget):
         self.epw_kv = QLabel("")
         self.epw_kv.setTextFormat(Qt.RichText)
         el.addWidget(self.epw_kv)
-        el.addWidget(QLabel("<b>Periodo de análisis</b>"))
+        el.addWidget(QLabel(tr("<b>Periodo de análisis</b>")))
         per = QGridLayout()
         self.m0, self.m1 = QComboBox(), QComboBox()
         for i, m in enumerate(clima.MONTHS):
@@ -508,10 +571,10 @@ class SitePanel(QWidget):
         self._bind(self.m1, ["period", "m1"], after=self._refresh_climate)
         self._bind(self.h0, ["period", "h0"], after=self._refresh_climate)
         self._bind(self.h1, ["period", "h1"], after=self._refresh_climate)
-        per.addWidget(QLabel("Meses"), 0, 0)
+        per.addWidget(QLabel(tr("Meses")), 0, 0)
         per.addWidget(self.m0, 0, 1)
         per.addWidget(self.m1, 0, 2)
-        per.addWidget(QLabel("Horas"), 1, 0)
+        per.addWidget(QLabel(tr("Horas")), 1, 0)
         per.addWidget(self.h0, 1, 1)
         per.addWidget(self.h1, 1, 2)
         narrow(self.m0, self.m1)
@@ -520,7 +583,7 @@ class SitePanel(QWidget):
         self.epw_stats.setTextFormat(Qt.RichText)
         self.epw_stats.setWordWrap(True)
         el.addWidget(self.epw_stats)
-        b = QPushButton("Quitar EPW")
+        b = QPushButton(tr("Quitar EPW"))
         b.clicked.connect(lambda: act.clear_epw(self.sitio))
         el.addWidget(b)
         lay.addWidget(self.epw_box)
@@ -547,7 +610,7 @@ class SitePanel(QWidget):
         self.north = _dspin(-180, 360, 0.5, 1, "°")
         self.north.setWrapping(True)
         self.north.valueChanged.connect(self._on_north)
-        col.addWidget(QLabel("Ángulo (horario desde +Y)"))
+        col.addWidget(QLabel(tr("Ángulo (horario desde +Y)")))
         col.addWidget(self.north)
         row = QHBoxLayout()
         for t, d in (("0°", 0.0), ("−15°", -15.0), ("+15°", 15.0)):
@@ -562,7 +625,7 @@ class SitePanel(QWidget):
         col.addLayout(row)
         top.addLayout(col, 1)
         lay.addLayout(top)
-        b = QPushButton("Desde la arista seleccionada (apunta al norte)")
+        b = QPushButton(tr("Desde la arista seleccionada (apunta al norte)"))
         b.setToolTip("Selecciona una línea del modelo dibujada hacia el norte "
                      "geográfico (de sur a norte) y pulsa.")
         b.clicked.connect(self._on_north_from_edge)
@@ -609,11 +672,11 @@ class SitePanel(QWidget):
         self.charts_box = QWidget()
         el = QVBoxLayout(self.charts_box)
         el.setContentsMargins(0, 0, 0, 0)
-        el.addWidget(QLabel("<b>Temperatura y humedad relativa mensual</b>"))
+        el.addWidget(QLabel(tr("<b>Temperatura y humedad relativa mensual</b>")))
         self.months_chart = MonthChart()
         el.addWidget(self.months_chart)
-        b = QPushButton("Guardar gráficos (PNG)…")
-        b.setToolTip("Guarda la rosa de los vientos y el gráfico mensual.")
+        b = QPushButton(tr("Guardar gráficos (PNG)…"))
+        b.setToolTip(tr("Guarda la rosa de los vientos y el gráfico mensual."))
         b.clicked.connect(self._on_save_charts)
         el.addWidget(b)
         lay.addWidget(self.charts_box)
@@ -714,11 +777,11 @@ class SitePanel(QWidget):
         sec = _section("Diagrama solar", "sun")
         lay = QVBoxLayout(sec.body)
         lay.setContentsMargins(6, 6, 6, 6)
-        lay.addWidget(self._bind(QCheckBox("Mostrar diagrama solar"),
+        lay.addWidget(self._bind(QCheckBox(tr("Mostrar diagrama solar")),
                                  ["sun", "diagram"]))
         form = wrapping_form(None)
         self.radius = self._bind(_dspin(5, 5000, 5, 0, " m"), ["radius"])
-        form.addRow("Radio del diagrama", self.radius)
+        form.addRow(tr("Radio del diagrama"), self.radius)
         self.cx, self.cy, self.cz = (_dspin(-1e6, 1e6, 1, 2) for _ in range(3))
         for i, w in enumerate((self.cx, self.cy, self.cz)):
             w.valueChanged.connect(lambda v, i=i: self._on_center(i, v))
@@ -726,18 +789,18 @@ class SitePanel(QWidget):
         for w in (self.cx, self.cy, self.cz):
             c.addWidget(w)
         narrow(self.cx, self.cy, self.cz)
-        form.addRow("Centro (X, Y, Z)", c)
+        form.addRow(tr("Centro (X, Y, Z)"), c)
         lay.addLayout(form)
         row = QHBoxLayout()
-        b = QPushButton("Elegir centro…")
-        b.setToolTip("Clic en el modelo (con inferencias) para centrar el diagrama.")
+        b = QPushButton(tr("Elegir centro…"))
+        b.setToolTip(tr("Clic en el modelo (con inferencias) para centrar el diagrama."))
         b.clicked.connect(self._on_pick_center)
         row.addWidget(b)
-        b = QPushButton("Origen")
+        b = QPushButton(tr("Origen"))
         b.clicked.connect(lambda: self._set_center((0.0, 0.0, 0.0)))
         row.addWidget(b)
         lay.addLayout(row)
-        lay.addWidget(QLabel("Trayectorias (día 21 de cada mes)"))
+        lay.addWidget(QLabel(tr("Trayectorias (día 21 de cada mes)")))
         grid = QGridLayout()
         self.month_checks = []
         for i, m in enumerate(clima.MONTHS):
@@ -798,19 +861,19 @@ class SitePanel(QWidget):
         self.rose_box = QWidget()
         rl = QVBoxLayout(self.rose_box)
         rl.setContentsMargins(0, 0, 0, 0)
-        rl.addWidget(QLabel("<b>Rosa de los vientos</b> (periodo de la sección 1)"))
+        rl.addWidget(QLabel(tr("<b>Rosa de los vientos</b> (periodo de la sección 1)")))
         self.rose = RoseChart()
         rl.addWidget(self.rose)
         form = wrapping_form(None)
         self.pal = QComboBox()
         for k, (name, _c) in clima.PALETTES.items():
-            self.pal.addItem(name, k)
+            self.pal.addItem(tr(name), k)
         self._bind(self.pal, ["wind", "pal"], after=self._refresh_climate)
-        form.addRow("Color", self.pal)
+        form.addRow(tr("Color"), self.pal)
         c0 = self._bind(ColorButton(), ["wind", "c0"], after=self._refresh_climate)
         c1 = self._bind(ColorButton(), ["wind", "c1"], after=self._refresh_climate)
         self.pal_custom = _row(c0, QLabel("→"), c1)
-        form.addRow("Calma → fuerte", self.pal_custom)
+        form.addRow(tr("Calma → fuerte"), self.pal_custom)
         narrow(self.pal)
         rl.addLayout(form)
         lay.addWidget(self.rose_box)
@@ -823,16 +886,16 @@ class SitePanel(QWidget):
                           ("Flechas de viento", "show"), ("Animar flujo", "anim")):
             lay.addWidget(self._bind(QCheckBox(text), ["wind", key]))
         form = wrapping_form(None)
-        form.addRow("Opacidad rosa 3D", self._bind(_dspin(0.15, 1, 0.05, 2),
+        form.addRow(tr("Opacidad rosa 3D"), self._bind(_dspin(0.15, 1, 0.05, 2),
                                                 ["wind", "opa"]))
-        form.addRow("Tamaño rosa 3D", self._bind(_dspin(0.2, 1.3, 0.02, 2, " × R"),
+        form.addRow(tr("Tamaño rosa 3D"), self._bind(_dspin(0.2, 1.3, 0.02, 2, " × R"),
                                               ["wind", "scale"]))
-        form.addRow("Altura flechas", self._bind(_dspin(0, 200, 1, 1, " m"),
+        form.addRow(tr("Altura flechas"), self._bind(_dspin(0, 200, 1, 1, " m"),
                                                  ["wind", "height"]))
-        form.addRow("Grosor", self._bind(_dspin(0.3, 3, 0.1, 1),
+        form.addRow(tr("Grosor"), self._bind(_dspin(0.3, 3, 0.1, 1),
                                          ["wind", "width"]))
         lay.addLayout(form)
-        lay.addWidget(QLabel("Direcciones (de dónde viene el viento)"))
+        lay.addWidget(QLabel(tr("Direcciones (de dónde viene el viento)")))
         self.winds = QTableWidget(0, 5)
         self.winds.setHorizontalHeaderLabels(["", "Etiqueta", "Dir °", "m/s", ""])
         hh = self.winds.horizontalHeader()
@@ -845,15 +908,15 @@ class SitePanel(QWidget):
         self.winds.cellDoubleClicked.connect(self._on_wind_dbl)
         lay.addWidget(self.winds)
         row = QHBoxLayout()
-        b = QPushButton("+ Añadir")
+        b = QPushButton(tr("+ Añadir"))
         b.clicked.connect(self._on_wind_add)
         row.addWidget(b)
-        b = QPushButton("Quitar")
+        b = QPushButton(tr("Quitar"))
         b.clicked.connect(self._on_wind_del)
         row.addWidget(b)
         lay.addLayout(row)
         lay.addWidget(_hint("Doble clic en el color para cambiarlo."))
-        self.dominant_btn = QPushButton("Aplicar vientos dominantes (EPW)")
+        self.dominant_btn = QPushButton(tr("Aplicar vientos dominantes (EPW)"))
         self.dominant_btn.clicked.connect(self._on_dominant)
         lay.addWidget(self.dominant_btn)
         self._lay.addWidget(sec)
@@ -929,93 +992,93 @@ class SitePanel(QWidget):
         self.prov = QComboBox()
         for k, src in PRESETS.items():
             self.prov.addItem(src.name, k)
-        self.prov.addItem("URL de teselas propia (XYZ)…", "custom")
+        self.prov.addItem(tr("URL de teselas propia (XYZ)…"), "custom")
         self._bind(self.prov, ["map", "provider"], after=self._sync_custom)
-        form.addRow("Cartografía", self.prov)
+        form.addRow(tr("Cartografía"), self.prov)
         self.custom = self._bind(QLineEdit(), ["map", "custom"])
         self.custom.setPlaceholderText("https://…/{z}/{x}/{y}.png")
-        form.addRow("URL", self.custom)
+        form.addRow(tr("URL"), self.custom)
         self.extent = self._bind(_dspin(100, 5000, 50, 0, " m"), ["map", "extent"])
-        form.addRow("Extensión", self.extent)
+        form.addRow(tr("Extensión"), self.extent)
         self.zoom = QComboBox()
-        self.zoom.addItem("Automático", 0)
+        self.zoom.addItem(tr("Automático"), 0)
         for z in range(14, 20):
             self.zoom.addItem(str(z), z)
         self._bind(self.zoom, ["map", "zoom"])
-        form.addRow("Zoom", self.zoom)
+        form.addRow(tr("Zoom"), self.zoom)
         narrow(self.prov, self.zoom, self.custom)
         lay.addLayout(form)
-        b = QPushButton("Descargar mapa base")
+        b = QPushButton(tr("Descargar mapa base"))
         b.clicked.connect(self._on_basemap)
         lay.addWidget(b)
-        self.map_show = QCheckBox("Mostrar mapa")
+        self.map_show = QCheckBox(tr("Mostrar mapa"))
         self.map_show.toggled.connect(self._on_map_show)
         self.map_opa = QSlider(Qt.Horizontal)
         self.map_opa.setRange(10, 100)
         self.map_opa.valueChanged.connect(self._on_map_opa)
-        lay.addLayout(_row(self.map_show, QLabel("Opacidad"), self.map_opa,
+        lay.addLayout(_row(self.map_show, QLabel(tr("Opacidad")), self.map_opa,
                            stretch_last=True))
         lay.addWidget(_hint("El mapa es la capa de mapa base de IngeTrazo "
                             "(también en la pestaña Terreno, con el terreno 3D)."))
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
         lay.addWidget(sep)
-        lay.addWidget(QLabel("<b>Edificios de contexto (OpenStreetMap)</b>"))
+        lay.addWidget(QLabel(tr("<b>Edificios de contexto (OpenStreetMap)</b>")))
         form = wrapping_form(None)
-        form.addRow("Radio", self._bind(_dspin(50, 2000, 50, 0, " m"),
+        form.addRow(tr("Radio"), self._bind(_dspin(50, 2000, 50, 0, " m"),
                                         ["ctx", "radius"]))
-        form.addRow("Altura por defecto", self._bind(_dspin(2, 100, 1, 1, " m"),
+        form.addRow(tr("Altura por defecto"), self._bind(_dspin(2, 100, 1, 1, " m"),
                                                      ["ctx", "def_h"]))
         lay.addLayout(form)
-        lay.addWidget(self._bind(QCheckBox("Apoyar en el terreno 3D (si existe)"),
+        lay.addWidget(self._bind(QCheckBox(tr("Apoyar en el terreno 3D (si existe)")),
                                  ["ctx", "terrain"]))
-        self.osm_btn = QPushButton("Cargar edificios 3D")
+        self.osm_btn = QPushButton(tr("Cargar edificios 3D"))
         self.osm_btn.clicked.connect(self._on_osm)
         lay.addWidget(self.osm_btn)
         self.ctx_count = _hint("")
         lay.addWidget(self.ctx_count)
-        self.ctx_show = QCheckBox("Mostrar edificios")
+        self.ctx_show = QCheckBox(tr("Mostrar edificios"))
         self.ctx_show.toggled.connect(self._on_ctx_show)
         lay.addWidget(self.ctx_show)
         form = wrapping_form(None)
         col = self._bind(ColorButton(), ["ctx", "color"],
                          after=lambda: act.restyle_context(self.sitio))
-        form.addRow("Color", col)
-        form.addRow("Opacidad", self._bind(
+        form.addRow(tr("Color"), col)
+        form.addRow(tr("Opacidad"), self._bind(
             _dspin(0.05, 1, 0.05, 2), ["ctx", "opacity"],
             after=lambda: act.restyle_context(self.sitio)))
         self.hscale = _dspin(0.2, 3, 0.1, 1, " ×")
         self._bind(self.hscale, ["ctx", "hscale"])
-        apply_h = QPushButton("Aplicar")
+        apply_h = QPushButton(tr("Aplicar"))
         apply_h.clicked.connect(self._on_rebuild_ctx)
-        form.addRow("Escala de altura", _row(self.hscale, apply_h))
+        form.addRow(tr("Escala de altura"), _row(self.hscale, apply_h))
         lay.addLayout(form)
-        self.ctx_edit = QCheckBox("Editar edificios: clic en la vista")
+        self.ctx_edit = QCheckBox(tr("Editar edificios: clic en la vista"))
         self.ctx_edit.toggled.connect(self._on_ctx_edit)
         lay.addWidget(self.ctx_edit)
         self.bld_box = QWidget()
         bl = wrapping_form(self.bld_box)
         self.bld_name = QLabel("")
-        bl.addRow("Edificio", self.bld_name)
+        bl.addRow(tr("Edificio"), self.bld_name)
         self.bld_h = _dspin(1, 500, 0.5, 1, " m")
         self.bld_min = _dspin(0, 500, 0.5, 1, " m")
-        bl.addRow("Altura", self.bld_h)
-        bl.addRow("Base", self.bld_min)
+        bl.addRow(tr("Altura"), self.bld_h)
+        bl.addRow(tr("Base"), self.bld_min)
         row = QHBoxLayout()
-        b = QPushButton("Aplicar")
+        b = QPushButton(tr("Aplicar"))
         b.clicked.connect(self._on_bld_apply)
         row.addWidget(b)
-        b = QPushButton("Ocultar")
+        b = QPushButton(tr("Ocultar"))
         b.clicked.connect(self._on_bld_hide)
         row.addWidget(b)
         bl.addRow("", row)
         self.bld_box.hide()
         lay.addWidget(self.bld_box)
         row = QHBoxLayout()
-        b = QPushButton("Mostrar ocultos")
+        b = QPushButton(tr("Mostrar ocultos"))
         b.clicked.connect(self._on_unhide_all)
         row.addWidget(b)
-        b = QPushButton("Quitar contexto")
+        b = QPushButton(tr("Quitar contexto"))
         b.clicked.connect(lambda: act.set_context(self.sitio, None,
                                                   "Contexto quitado."))
         row.addWidget(b)
@@ -1141,17 +1204,17 @@ class SitePanel(QWidget):
         lay.addWidget(_hint("Dibuja la planta con Rectángulo, Polígono o Línea, "
                             "selecciona la(s) cara(s) y conviértelas:"))
         row = QGridLayout()
-        b = QPushButton("⬛ Masa desde selección")
+        b = QPushButton(tr("⬛ Masa desde selección"))
         b.clicked.connect(lambda: self._make_masses("mass"))
         row.addWidget(b, 0, 0)
-        b = QPushButton("▭ Lote desde selección")
+        b = QPushButton(tr("▭ Lote desde selección"))
         b.clicked.connect(lambda: self._make_masses("lot"))
         row.addWidget(b, 0, 1)
         lay.addLayout(row)
         form = wrapping_form(None)
-        form.addRow("Altura inicial", self._bind(_dspin(0, 500, 0.5, 2, " m"),
+        form.addRow(tr("Altura inicial"), self._bind(_dspin(0, 500, 0.5, 2, " m"),
                                                  ["model", "def_h"]))
-        form.addRow("Altura de piso", self._bind(_dspin(2, 10, 0.1, 2, " m"),
+        form.addRow(tr("Altura de piso"), self._bind(_dspin(2, 10, 0.1, 2, " m"),
                                                  ["model", "floor_h"]))
         lay.addLayout(form)
         self.mass_list = QListWidget()
@@ -1163,27 +1226,27 @@ class SitePanel(QWidget):
         mf = wrapping_form(self.mass_box)
         self.mp_name = QLineEdit()
         self.mp_name.editingFinished.connect(self._on_mass_name)
-        mf.addRow("Nombre", self.mp_name)
+        mf.addRow(tr("Nombre"), self.mp_name)
         self.mp_kind = QComboBox()
-        self.mp_kind.addItem("Masa (volumen)", "mass")
-        self.mp_kind.addItem("Lote / área", "lot")
+        self.mp_kind.addItem(tr("Masa (volumen)"), "mass")
+        self.mp_kind.addItem(tr("Lote / área"), "lot")
         self.mp_kind.currentIndexChanged.connect(
             lambda _i: self._mass_change(kind=self.mp_kind.currentData()))
-        mf.addRow("Tipo", self.mp_kind)
+        mf.addRow(tr("Tipo"), self.mp_kind)
         self.mp_h = _dspin(0, 1000, 0.5, 2, " m")
         self.mp_h.valueChanged.connect(lambda v: self._mass_change(h=v))
-        mf.addRow("Altura", self.mp_h)
+        mf.addRow(tr("Altura"), self.mp_h)
         self.mp_floors = _ispin(0, 300)
         self.mp_floors.valueChanged.connect(self._on_floors)
-        mf.addRow("Pisos", self.mp_floors)
+        mf.addRow(tr("Pisos"), self.mp_floors)
         self.mp_base = _dspin(-1000, 1000, 0.5, 2, " m")
         self.mp_base.valueChanged.connect(lambda v: self._mass_change(base=v))
-        mf.addRow("Cota base", self.mp_base)
+        mf.addRow(tr("Cota base"), self.mp_base)
         self.mp_color = ColorButton()
         self.mp_color.colorChanged.connect(lambda c: self._mass_change(color=c))
         self.mp_opa = _dspin(0.1, 1, 0.05, 2)
         self.mp_opa.valueChanged.connect(lambda v: self._mass_change(opacity=v))
-        mf.addRow("Color", _row(self.mp_color, QLabel("Opacidad"), self.mp_opa))
+        mf.addRow(tr("Color"), _row(self.mp_color, QLabel(tr("Opacidad")), self.mp_opa))
         self.mp_kv = QLabel("")
         self.mp_kv.setTextFormat(Qt.RichText)
         mf.addRow(self.mp_kv)
@@ -1362,10 +1425,10 @@ class SitePanel(QWidget):
         lay.addWidget(self.icons)
         self._fill_icons()
         row = QGridLayout()
-        b = QPushButton("⌖ Punto (clic en la vista)")
+        b = QPushButton(tr("⌖ Punto (clic en la vista)"))
         b.clicked.connect(lambda: self._place_pin(False))
         row.addWidget(b, 0, 0)
-        b = QPushButton("★ Con el icono elegido")
+        b = QPushButton(tr("★ Con el icono elegido"))
         b.clicked.connect(lambda: self._place_pin(True))
         row.addWidget(b, 0, 1)
         lay.addLayout(row)
@@ -1377,35 +1440,35 @@ class SitePanel(QWidget):
         pf = wrapping_form(self.pin_box)
         self.pp_label = QLineEdit()
         self.pp_label.editingFinished.connect(self._on_pin_label)
-        pf.addRow("Texto", self.pp_label)
+        pf.addRow(tr("Texto"), self.pp_label)
         row = QHBoxLayout()
-        b = QPushButton("Usar icono elegido")
+        b = QPushButton(tr("Usar icono elegido"))
         b.clicked.connect(self._on_pin_icon)
         row.addWidget(b)
-        b = QPushButton("Quitar icono")
+        b = QPushButton(tr("Quitar icono"))
         b.clicked.connect(lambda: self._pin_set(icon=None))
         row.addWidget(b)
-        b = QPushButton("Eliminar")
+        b = QPushButton(tr("Eliminar"))
         b.clicked.connect(self._on_pin_del)
         row.addWidget(b)
         pf.addRow(row)
         self.pin_box.hide()
         lay.addWidget(self.pin_box)
-        lay.addWidget(QLabel("<b>Estilo de las anotaciones</b>"))
+        lay.addWidget(QLabel(tr("<b>Estilo de las anotaciones</b>")))
         form = wrapping_form(None)
         a = ["annot"]
-        form.addRow("Icono · Texto · Línea", _row(
+        form.addRow(tr("Icono · Texto · Línea"), _row(
             self._bind(ColorButton(), a + ["color"]),
             self._bind(ColorButton(), a + ["text"]),
             self._bind(ColorButton(), a + ["line"])))
-        form.addRow(self._bind(QCheckBox("Fondo circular / etiqueta"), a + ["bg"]),
+        form.addRow(self._bind(QCheckBox(tr("Fondo circular / etiqueta")), a + ["bg"]),
                     self._bind(ColorButton(), a + ["bg_color"]))
-        form.addRow("Tamaño", self._bind(_dspin(1, 80, 0.5, 1, " m"), a + ["size"]))
-        form.addRow("Altura", self._bind(_dspin(0, 200, 1, 1, " m"), a + ["h"]))
+        form.addRow(tr("Tamaño"), self._bind(_dspin(1, 80, 0.5, 1, " m"), a + ["size"]))
+        form.addRow(tr("Altura"), self._bind(_dspin(0, 200, 1, 1, " m"), a + ["h"]))
         lay.addLayout(form)
-        lay.addWidget(self._bind(QCheckBox("Línea guía al terreno"), a + ["line_on"]))
-        lay.addWidget(self._bind(QCheckBox("Mostrar texto"), a + ["label_on"]))
-        b = QPushButton("Aplicar estilo a todas")
+        lay.addWidget(self._bind(QCheckBox(tr("Línea guía al terreno")), a + ["line_on"]))
+        lay.addWidget(self._bind(QCheckBox(tr("Mostrar texto")), a + ["label_on"]))
+        b = QPushButton(tr("Aplicar estilo a todas"))
         b.clicked.connect(lambda: act.style_all_pins(self.sitio))
         lay.addWidget(b)
         lay.addWidget(_hint("Con la herramienta Seleccionar: clic en una anotación "
@@ -1504,22 +1567,22 @@ class SitePanel(QWidget):
         sec = _section("10 · ◐  Visualización", "view", True)
         lay = QVBoxLayout(sec.body)
         lay.setContentsMargins(6, 6, 6, 6)
-        self.on = self._bind(QCheckBox("Mostrar el análisis en la vista"), ["on"])
+        self.on = self._bind(QCheckBox(tr("Mostrar el análisis en la vista")), ["on"])
         lay.addWidget(self.on)
-        lay.addWidget(self._bind(QCheckBox("Brújula y grados"), ["view", "compass"]))
+        lay.addWidget(self._bind(QCheckBox(tr("Brújula y grados")), ["view", "compass"]))
         form = wrapping_form(None)
-        form.addRow("Anillos", _row(self._bind(_ispin(0, 20), ["rings", "n"]),
-                                    QLabel("cada"),
+        form.addRow(tr("Anillos"), _row(self._bind(_ispin(0, 20), ["rings", "n"]),
+                                    QLabel(tr("cada")),
                                     self._bind(_dspin(1, 1000, 5, 0, " m"),
                                                ["rings", "step"]),
                                     self._bind(ColorButton(), ["rings", "color"])))
-        form.addRow("Escala de etiquetas", self._bind(_dspin(0.4, 2.5, 0.1, 1),
+        form.addRow(tr("Escala de etiquetas"), self._bind(_dspin(0.4, 2.5, 0.1, 1),
                                                       ["view", "label_scale"]))
         lay.addLayout(form)
-        lay.addWidget(QLabel("<b>Convenciones</b>"))
+        lay.addWidget(QLabel(tr("<b>Convenciones</b>")))
         self.legend = LegendWidget()
         lay.addWidget(self.legend)
-        lay.addWidget(QLabel("<b>Vistas</b>"))
+        lay.addWidget(QLabel(tr("<b>Vistas</b>")))
         g = QGridLayout()
         views = (("Planta", "top"), ("Iso SE", "iso_se"), ("Iso SO", "iso_sw"),
                  ("Iso NE", "iso_ne"), ("Iso NO", "iso_nw"),
@@ -1577,10 +1640,10 @@ class SitePanel(QWidget):
         for t, w in (("FHD (1920)", 1920), ("2K (2560)", 2560),
                      ("4K (3840)", 3840), ("5K (5120)", 5120)):
             self.res.addItem(t, w)
-        form.addRow("Resolución", self.res)
+        form.addRow(tr("Resolución"), self.res)
         narrow(self.res)
         lay.addLayout(form)
-        b = QPushButton("Exportar imagen (PNG)…")
+        b = QPushButton(tr("Exportar imagen (PNG)…"))
         b.clicked.connect(self._on_png)
         lay.addWidget(b)
         lay.addWidget(_hint("La imagen es la vista actual con el análisis encima, "
@@ -1589,13 +1652,13 @@ class SitePanel(QWidget):
         sep.setFrameShape(QFrame.HLine)
         lay.addWidget(sep)
         form = wrapping_form(None)
-        form.addRow("Título del panel", self._bind(QLineEdit(),
+        form.addRow(tr("Título del panel"), self._bind(QLineEdit(),
                                                    ["view", "notes_title"]))
         corner = QComboBox()
         for k, t in (("tr", "Arriba derecha"), ("tl", "Arriba izquierda"),
                      ("br", "Abajo derecha"), ("bl", "Abajo izquierda")):
             corner.addItem(t, k)
-        form.addRow("Posición", self._bind(corner, ["view", "notes_corner"]))
+        form.addRow(tr("Posición"), self._bind(corner, ["view", "notes_corner"]))
         narrow(corner)
         lay.addLayout(form)
         # Oculto al iniciar IngeTrazo: es un ajuste de la sesión, no del
@@ -1646,7 +1709,7 @@ class SitePanel(QWidget):
                      ("sel", "Selección (caras o grupos)"),
                      ("none", "Sólo el suelo")):
             tgt.addItem(t, k)
-        form.addRow("Superficies", self._bind(tgt, r + ["target"]))
+        form.addRow(tr("Superficies"), self._bind(tgt, r + ["target"]))
         resn = QComboBox()
         for k, t in (("faces:1.0", "Por superficie (un color por cara)"),
                      ("cells:2.0", "Malla de 2 m"), ("cells:1.0", "Malla de 1 m"),
@@ -1654,16 +1717,16 @@ class SitePanel(QWidget):
             resn.addItem(t, k)
         resn.currentIndexChanged.connect(self._on_rad_res)
         self.rad_res = resn
-        form.addRow("Resolución", resn)
+        form.addRow(tr("Resolución"), resn)
         self.ground_r = _dspin(0, 2000, 10, 0, " m")
         self.ground_r.setSpecialValueText("automático")
         self._bind(self.ground_r, r + ["ground_r"])
-        form.addRow(self._bind(QCheckBox("Suelo alrededor"), r + ["ground"]),
-                    _row(QLabel("margen"), self.ground_r))
+        form.addRow(self._bind(QCheckBox(tr("Suelo alrededor")), r + ["ground"]),
+                    _row(QLabel(tr("margen")), self.ground_r))
         narrow(tgt, resn)
         lay.addLayout(form)
         # Radiación.
-        lay.addWidget(QLabel("<b>Radiación solar incidente</b>"))
+        lay.addWidget(QLabel(tr("<b>Radiación solar incidente</b>")))
         form = wrapping_form(None)
         per = QComboBox()
         for k, t in (("day", "Día de la sección 4"), ("month", "Un mes"),
@@ -1671,39 +1734,39 @@ class SitePanel(QWidget):
                      ("year", "Año completo")):
             per.addItem(t, k)
         self.rad_per = self._bind(per, r + ["period"], after=self._sync_rad)
-        form.addRow("Periodo", per)
+        form.addRow(tr("Periodo"), per)
         mon = QComboBox()
         for i, m in enumerate(clima.MONTHS_LONG):
             mon.addItem(m.capitalize(), i + 1)
         self.rad_month = self._bind(mon, r + ["month"])
-        self.rad_month_lbl = QLabel("Mes")
+        self.rad_month_lbl = QLabel(tr("Mes"))
         form.addRow(self.rad_month_lbl, mon)
-        form.addRow("Albedo del suelo", self._bind(_dspin(0, 0.9, 0.05, 2),
+        form.addRow(tr("Albedo del suelo"), self._bind(_dspin(0, 0.9, 0.05, 2),
                                                    r + ["albedo"]))
         narrow(per, mon)
         lay.addLayout(form)
         self.rad_src = _hint("")
         lay.addWidget(self.rad_src)
-        b = QPushButton("☀  Calcular radiación")
+        b = QPushButton(tr("☀  Calcular radiación"))
         b.clicked.connect(self._on_rad)
         lay.addWidget(b)
         # Sombras.
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
         lay.addWidget(sep)
-        lay.addWidget(QLabel("<b>Estudio de sombras</b>"))
+        lay.addWidget(QLabel(tr("<b>Estudio de sombras</b>")))
         self.sd_date = _hint("")
         lay.addWidget(self.sd_date)
         form = wrapping_form(None)
-        form.addRow("Desde", self._bind(_ispin(0, 23, ":00 h"), d + ["h0"]))
-        form.addRow("Hasta", self._bind(_ispin(1, 24, ":00 h"), d + ["h1"]))
+        form.addRow(tr("Desde"), self._bind(_ispin(0, 23, ":00 h"), d + ["h0"]))
+        form.addRow(tr("Hasta"), self._bind(_ispin(1, 24, ":00 h"), d + ["h1"]))
         step = QComboBox()
         for m in (15, 20, 30, 60):
             step.addItem(f"cada {m} min", m)
-        form.addRow("Intervalo", self._bind(step, d + ["step"]))
+        form.addRow(tr("Intervalo"), self._bind(step, d + ["step"]))
         narrow(step)
         lay.addLayout(form)
-        b = QPushButton("◑  Calcular estudio de sombras")
+        b = QPushButton(tr("◑  Calcular estudio de sombras"))
         b.clicked.connect(self._on_sd)
         lay.addWidget(b)
         # Resultado en la vista.
@@ -1713,12 +1776,12 @@ class SitePanel(QWidget):
         self.map_box = QWidget()
         ml = QVBoxLayout(self.map_box)
         ml.setContentsMargins(0, 0, 0, 0)
-        ml.addWidget(QLabel("<b>Resultado en la vista</b>"))
+        ml.addWidget(QLabel(tr("<b>Resultado en la vista</b>")))
         self.map_pick = QComboBox()
         self.map_pick.currentIndexChanged.connect(self._on_map_pick)
         ml.addWidget(self.map_pick)
         self.legend_on = self._bind(
-            QCheckBox("Mostrar panel flotante de la escala (radiación / sombras)"),
+            QCheckBox(tr("Mostrar panel flotante de la escala (radiación / sombras)")),
             r + ["legend"])
         ml.addWidget(self.legend_on)
         self.map_kv = QLabel("")
@@ -1729,34 +1792,34 @@ class SitePanel(QWidget):
         rl = wrapping_form(self.rad_opts)
         pal = QComboBox()
         for k, (t, _st) in rad.PALETTES.items():
-            pal.addItem(t, k)
+            pal.addItem(tr(t), k)
         self._bind(pal, r + ["palette"], after=self._rad_recolor)
-        rl.addRow("Colores", pal)
-        rl.addRow(self._bind(QCheckBox("Escala automática (mín–máx)"),
+        rl.addRow(tr("Colores"), pal)
+        rl.addRow(self._bind(QCheckBox(tr("Escala automática (mín–máx)")),
                              r + ["auto"], after=self._rad_recolor))
         self.rad_lo = self._bind(_dspin(0, 1e6, 10, 1, " kWh/m²"), r + ["vmin"],
                                  after=self._rad_recolor)
         self.rad_hi = self._bind(_dspin(0, 1e6, 10, 1, " kWh/m²"), r + ["vmax"],
                                  after=self._rad_recolor)
-        rl.addRow("Mínimo", self.rad_lo)
-        rl.addRow("Máximo", self.rad_hi)
+        rl.addRow(tr("Mínimo"), self.rad_lo)
+        rl.addRow(tr("Máximo"), self.rad_hi)
         narrow(pal)
         ml.addWidget(self.rad_opts)
         self.sd_opts = QWidget()
         sl = wrapping_form(self.sd_opts)
         spal = QComboBox()
         for k, (t, _st) in rad.PALETTES.items():
-            spal.addItem(t, k)
+            spal.addItem(tr(t), k)
         self._bind(spal, d + ["palette"], after=self._sd_recolor)
-        sl.addRow("Colores", spal)
+        sl.addRow(tr("Colores"), spal)
         show = QComboBox()
-        show.addItem("Horas de sombra", "shade")
-        show.addItem("Horas de sol (asoleamiento)", "sun")
+        show.addItem(tr("Horas de sombra"), "shade")
+        show.addItem(tr("Horas de sol (asoleamiento)"), "sun")
         self._bind(show, d + ["show"], after=self._sd_recolor)
-        sl.addRow("Mostrar", show)
+        sl.addRow(tr("Mostrar"), show)
         narrow(spal, show)
         ml.addWidget(self.sd_opts)
-        b = QPushButton("Quitar el resultado mostrado")
+        b = QPushButton(tr("Quitar el resultado mostrado"))
         b.clicked.connect(self._on_map_clear)
         ml.addWidget(b)
         lay.addWidget(self.map_box)
@@ -1893,7 +1956,7 @@ class SitePanel(QWidget):
         self.map_box.setVisible(any(groups.values()))
         with QSignalBlocker(self.map_pick):
             self.map_pick.clear()
-            self.map_pick.addItem("Ninguno", None)
+            self.map_pick.addItem(tr("Ninguno"), None)
             for k, title in (("radiation", "Mapa de radiación solar"),
                              ("shadows", "Estudio de sombras (horas de sombra)")):
                 if groups[k] is not None:
