@@ -416,5 +416,6 @@
   "La URL de teselas debe llevar {z}, {x} y {y}.": "A URL dos blocos deve conter {z}, {x} e {y}.",
   "La vista no está lista para exportar.": "A vista não está pronta para exportar.",
   "No se pudo guardar {path}.": "Não foi possível salvar {path}.",
-  "Esc cancela": "Esc cancela"
+  "Esc cancela": "Esc cancela",
+  "Error": "Erro"
 }

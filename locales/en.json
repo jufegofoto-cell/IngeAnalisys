@@ -416,5 +416,6 @@
   "La URL de teselas debe llevar {z}, {x} y {y}.": "The tile URL must contain {z}, {x}, and {y}.",
   "La vista no está lista para exportar.": "The viewport is not ready to export.",
   "No se pudo guardar {path}.": "Could not save {path}.",
-  "Esc cancela": "Esc cancels"
+  "Esc cancela": "Esc cancels",
+  "Error": "Error"
 }

@@ -416,5 +416,6 @@
   "La URL de teselas debe llevar {z}, {x} y {y}.": "L'URL des tuiles doit contenir {z}, {x} et {y}.",
   "La vista no está lista para exportar.": "La vue n'est pas prête pour l'exportation.",
   "No se pudo guardar {path}.": "Impossible d'enregistrer {path}.",
-  "Esc cancela": "Échap pour annuler"
+  "Esc cancela": "Échap pour annuler",
+  "Error": "Erreur"
 }

@@ -35,6 +35,15 @@ import numpy as np
 
 from core.sun import solar_position
 
+# ==============================================================================
+# IMPORTATION DU MODULE DE LOCALISATION (i18n)
+# Fournit la fonction tr() pour la traduction des libellés et textes de statut.
+# ==============================================================================
+try:
+    from .i18n import tr  # Contexte d'exécution dans le plugin IngeTrazo
+except ImportError:
+    from i18n import tr   # Contexte autonome ou de test unitaire
+
 from . import solar
 
 YEAR = solar.YEAR
@@ -531,15 +540,35 @@ OFFSET = 0.08            # m sobre la superficie: sin «z-fighting» de lejos
 
 
 def find_group(scene, key: str, kind: str = "radiation"):
+    # Recherche d'abord par la clé exacte de l'extension active
     for g in scene.groups:
         ext = getattr(g, "ext", None) or {}
         if isinstance(ext.get(key), dict) and ext[key].get("kind") == kind:
             return g
+    # Recherche de repli pour reconnaître les groupes créés avec d'anciennes clés ou backups
+    for g in scene.groups:
+        ext = getattr(g, "ext", None) or {}
+        for k, v in ext.items():
+            if "analisis_sitio" in str(k) and isinstance(v, dict) and v.get("kind") == kind:
+                return g
     return None
 
 
 def map_groups(scene, key: str) -> list:
-    return [g for g in (find_group(scene, key, k) for k in KINDS) if g is not None]
+    # Retourne tous les groupes de cartes présents dans la scène (actifs ou hérités)
+    out = []
+    for g in scene.groups:
+        ext = getattr(g, "ext", None) or {}
+        if isinstance(ext.get(key), dict) and ext[key].get("kind") in KINDS:
+            if g not in out:
+                out.append(g)
+            continue
+        for k, v in ext.items():
+            if "analisis_sitio" in str(k) and isinstance(v, dict) and v.get("kind") in KINDS:
+                if g not in out:
+                    out.append(g)
+                break
+    return out
 
 
 def visible_map(scene, key: str):

@@ -1900,17 +1900,26 @@ class SitePanel(QWidget):
         return s
 
     def _run_map(self, fn, settings, title, cancelled) -> None:
+        # Boîte de dialogue de progression modale avec fermeture garantie
         dlg, cb = self._progress(title)
         try:
-            res = fn(self.sitio, settings, cb)
-        except act.SiteError as exc:
+            try:
+                res = fn(self.sitio, settings, cb)
+            except act.SiteError as exc:
+                self._flash(str(exc))
+                return
+            except Exception as exc:
+                # Capture toute exception inattendue pour ne jamais figer la modale à 95%
+                import traceback
+                traceback.print_exc()
+                self._flash(f"{tr('Error')}: {exc}")
+                return
+            if res is None:
+                self._flash(tr(cancelled))
+            self.refresh()
+        finally:
+            # Assure que le dialogue de progression se ferme toujours proprement
             dlg.close()
-            self._flash(str(exc))
-            return
-        dlg.close()
-        if res is None:
-            self._flash(tr(cancelled))
-        self.refresh()
 
     def _on_rad(self) -> None:
         from . import radiacion as rad
