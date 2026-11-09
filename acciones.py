@@ -11,6 +11,10 @@ import math
 import uuid
 
 from . import clima, geometria as geo
+try:
+    from .i18n import tr
+except ImportError:
+    from i18n import tr
 from .datos import PALETTE, WIND_COLORS, run_step
 
 
@@ -47,7 +51,7 @@ def masses(sitio) -> list:
 
 
 def _next_name(scene, kind: str) -> str:
-    base = "Lote" if kind == "lot" else "Masa"
+    base = tr("Lote") if kind == "lot" else tr("Masa")
     used = {g.name for g in scene.groups}
     i = 1
     while f"{base} {i}" in used:
@@ -140,9 +144,8 @@ def create_masses_from_faces(sitio, kind: str = "mass",
         sc.selection.clear()
         sc.selection.update(made)
 
-    label = "lote(s)" if kind == "lot" else "masa(s)"
-    if not run_step(sitio.app.viewport, mutate,
-                    message=f"{len(plans)} {label} creada(s)."):
+    msg = tr("{n} lote(s) creada(s).", n=len(plans)) if kind == "lot" else tr("{n} masa(s) creada(s).", n=len(plans))
+    if not run_step(sitio.app.viewport, mutate, message=msg):
         return []
     sitio.changed.emit()
     return made
@@ -237,7 +240,7 @@ def delete_mass(sitio, group) -> bool:
             sc.groups.remove(group)
         sc.selection.discard(group)
 
-    ok = run_step(sitio.app.viewport, mutate, message=f"«{group.name}» eliminada.")
+    ok = run_step(sitio.app.viewport, mutate, message=tr("«{name}» eliminada.", name=group.name))
     sitio.changed.emit()
     return ok
 
@@ -324,7 +327,7 @@ def context_from_osm(sitio, payload: dict) -> int:
     bl = osm.parse(payload, to_local, float(view["ctx"]["def_h"]))
     if not bl:
         raise SiteError("OpenStreetMap no tiene edificios en ese radio.")
-    set_context(sitio, bl, message=f"{len(bl)} edificios de contexto cargados.")
+    set_context(sitio, bl, message=tr("{n} edificios de contexto cargados.", n=len(bl)))
     return len(bl)
 
 
@@ -382,7 +385,7 @@ def add_pin(sitio, point, label: str | None = None, icon: str | None = None):
     c = st.content()
     n = len(c["pins"]) + 1
     pin = {"id": _new_id("p"), "pos": [point.x(), point.y(), point.z()],
-           "label": label if label is not None else f"Punto {n}",
+           "label": label if label is not None else f"{tr('Punto')} {n}",
            "icon": icon or None}
     c["pins"].append(pin)
     st.set_content(c)
@@ -464,7 +467,7 @@ def dominant_winds(sitio) -> list:
         raise SiteError("Carga primero un archivo EPW.")
     out = []
     for i, d in enumerate(s["top"]):
-        out.append({"on": True, "label": "Viento-" + clima.DIR16_LONG[d],
+        out.append({"on": True, "label": tr("Viento") + "-" + clima.DIR16_LONG[d],
                     "dir": d * 22.5, "speed": round(s["avg_sp"][d], 1),
                     "color": WIND_COLORS[i % len(WIND_COLORS)],
                     "freq": round(s["freq"][d] * 100, 1)})
@@ -506,7 +509,7 @@ def load_basemap(sitio, provider: str, extent: float, zoom: int = 0,
     if provider == "custom":
         if "{z}" not in custom or "{x}" not in custom or "{y}" not in custom:
             raise SiteError("La URL de teselas debe llevar {z}, {x} y {y}.")
-        src = custom_source(custom, name="Personalizado")
+        src = custom_source(custom, name=tr("Personalizado"))
     else:
         src = PRESETS.get(provider) or next(iter(PRESETS.values()))
     z = int(zoom) if zoom else auto_zoom(d.lat, extent)

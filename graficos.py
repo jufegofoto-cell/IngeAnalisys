@@ -14,6 +14,10 @@ from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from . import clima
+try:
+    from .i18n import tr
+except ImportError:
+    from i18n import tr
 
 
 def _font(px, bold=False):
@@ -89,7 +93,7 @@ def paint_rose(p: QPainter, rect: QRectF, stats: dict, colors, theme) -> None:
             p.drawPath(path)
     p.setPen(theme["text"])
     p.setFont(_font(24 * k, True))
-    for i, t in enumerate(("N", "E", "S", "O")):
+    for i, t in enumerate(("N", "E", "S", tr("O"))):
         a = math.radians(i * 90 - 90)
         q = QPointF(cx + math.cos(a) * (R + 26 * k), cy + math.sin(a) * (R + 26 * k))
         p.drawText(QRectF(q.x() - 20 * k, q.y() - 15 * k, 40 * k, 30 * k),
@@ -112,7 +116,7 @@ def paint_rose(p: QPainter, rect: QRectF, stats: dict, colors, theme) -> None:
     p.setPen(theme["mute"])
     p.drawText(QRectF(rect.x(), rect.y() + 8 * k, w - 16 * k, 30 * k),
                Qt.AlignRight | Qt.AlignVCenter,
-               f"Calmas {stats['calm'] * 100:.1f}%")
+               f"{tr('Calmas')} {stats['calm'] * 100:.1f}%")
     p.restore()
 
 
@@ -146,7 +150,7 @@ def paint_months(p: QPainter, rect: QRectF, stats: dict, theme) -> None:
     p.setPen(theme["text"])
     p.setFont(_font(19 * k, True))
     p.drawText(QPointF(ox + left * k, oy + 20 * k),
-               "Temperatura (°C): rango mín–máx y media")
+               tr("Temperatura (°C): rango mín–máx y media"))
     bw = (W - left - right) / 12 * 0.42 * k
     p.setPen(Qt.NoPen)
     p.setBrush(QColor(245, 158, 11, 90))
@@ -166,7 +170,7 @@ def paint_months(p: QPainter, rect: QRectF, stats: dict, theme) -> None:
     p.setPen(theme["text"])
     p.setFont(_font(19 * k, True))
     p.drawText(QPointF(ox + left * k, oy + (top2 - 12) * k),
-               "Humedad relativa media (%)")
+               tr("Humedad relativa media (%)"))
     span = bot2 - top2
     p.setPen(Qt.NoPen)
     p.setBrush(QColor("#60a5fa"))

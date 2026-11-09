@@ -88,8 +88,9 @@ def _hint(text: str) -> QLabel:
 
 
 def _kv(rows) -> str:
+    # Traduit automatiquement chaque libellé de ligne (clé k) dans la langue active
     return ("<table width='100%' cellspacing='0' cellpadding='1'>"
-            + "".join(f"<tr><td style='color:gray'>{k}</td>"
+            + "".join(f"<tr><td style='color:gray'>{tr(str(k))}</td>"
                       f"<td align='right'>{v}</td></tr>" for k, v in rows)
             + "</table>")
 
@@ -116,7 +117,7 @@ class ColorButton(QPushButton):
                            "border: 1px solid #7f8a99; border-radius: 3px; }")
 
     def _pick(self) -> None:
-        c = QColorDialog.getColor(QColor(self._color), self, "Color")
+        c = QColorDialog.getColor(QColor(self._color), self, tr("Color"))
         if c.isValid():
             self.setColor(c.name())
             self.colorChanged.emit(self._color)
@@ -196,13 +197,13 @@ class LegendWidget(QWidget):
         if not self.rows:
             p.setPen(text)
             p.drawText(self.rect(), Qt.AlignLeft | Qt.AlignVCenter,
-                       "Nada visible en la vista.")
+                       tr("Nada visible en la vista."))
         for i, r in enumerate(self.rows):
             y = 2 + i * 21 + 10
             legend_symbol(p, r["sym"], r["c"], 4, y, 13)
             p.setPen(text)
             p.drawText(QRectF(34, y - 10, self.width() - 36, 20),
-                       Qt.AlignLeft | Qt.AlignVCenter, r["s"])
+                       Qt.AlignLeft | Qt.AlignVCenter, tr(r["s"]))
         p.end()
 
 
@@ -224,17 +225,36 @@ class SitePanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        outer.addWidget(scroll)
+        self._scroll = scroll
+
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setSingleShot(True)
+        self._refresh_timer.setInterval(60)
+        self._refresh_timer.timeout.connect(self.refresh)
+        sitio.changed.connect(self.schedule_refresh)
+
+        # Construction initiale (et reconstructible à chaud lors d'un changement de langue)
+        self._build_all()
+
+    def _build_all(self) -> None:
+        """Construit ou reconstruit intégralement l'interface du panneau dans la langue active."""
+        old_body = self._scroll.takeWidget()
+        if old_body is not None:
+            old_body.deleteLater()
+
+        self._binds = []
+        self._mass_rows = []
+
         body = QWidget()
         self._lay = QVBoxLayout(body)
         self._lay.setContentsMargins(6, 4, 6, 8)
         self._lay.setSpacing(4)
-        scroll.setWidget(body)
-        outer.addWidget(scroll)
-        self._scroll = scroll
+        self._scroll.setWidget(body)
 
-        # Sélecteur de langue multilingue
+        # Sélecteur de langue multilingue en haut du panneau
         self._build_lang()
-        # El orden de la pestaña (1 → 11).
+        # Construction des 12 sections repliables dans l'ordre (1 → 12)
         self._build_epw()           # 1  Cargar archivo EPW
         self._build_location()      # 2  Ubicación
         self._build_north()         # 3  Norte del proyecto
@@ -248,16 +268,13 @@ class SitePanel(QWidget):
         self._build_solar()         # 11 Radiación solar y sombras
         self._build_export()        # 12 Exportar imagen (+ panel flotante)
         self._lay.addStretch(1)
-        self._wheel_guard = _WheelGuard(scroll)
+
+        self._wheel_guard = _WheelGuard(self._scroll)
         for w in body.findChildren(QWidget):
             if isinstance(w, (QComboBox, QAbstractSpinBox, QSlider, QDial)):
                 w.setFocusPolicy(Qt.StrongFocus)
                 w.installEventFilter(self._wheel_guard)
-        self._refresh_timer = QTimer(self)
-        self._refresh_timer.setSingleShot(True)
-        self._refresh_timer.setInterval(60)
-        self._refresh_timer.timeout.connect(self.refresh)
-        sitio.changed.connect(self.schedule_refresh)
+
         self.refresh()
 
     # ---- Enlaces control ↔ vista ------------------------------------------------
@@ -352,7 +369,7 @@ class SitePanel(QWidget):
                                         ("Solsticio jun", 172),
                                         ("Equinoccio sep", 266),
                                         ("Solsticio dic", 355))):
-            b = QPushButton(txt)
+            b = QPushButton(tr(txt))
             b.setStyleSheet("font-size: 11px;")
             b.clicked.connect(lambda _c=False, d=doy: self.sitio.set_when(doy=d))
             quick.addWidget(b, i // 2, i % 2)
@@ -400,7 +417,7 @@ class SitePanel(QWidget):
         lay = QVBoxLayout(sec.body)
         lay.setContentsMargins(6, 6, 6, 6)
         self.geo_q = QLineEdit()
-        self.geo_q.setPlaceholderText("Buscar dirección o pegar «lat, lon»")
+        self.geo_q.setPlaceholderText(tr("Buscar dirección o pegar «lat, lon»"))
         self.geo_q.returnPressed.connect(self._on_search)
         b = QPushButton(tr("Buscar"))
         b.clicked.connect(self._on_search)
@@ -445,23 +462,23 @@ class SitePanel(QWidget):
         import re
         m = re.match(r"^\s*(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)\s*$", q)
         if m:
-            self._set_site(float(m.group(1)), float(m.group(2)), "Coordenadas")
+            self._set_site(float(m.group(1)), float(m.group(2)), tr("Coordenadas"))
             return
         if self._geocoder is None:
             from georef.geocode import Geocoder
             self._geocoder = Geocoder(self)
             self._geocoder.resultsReady.connect(self._on_places)
             self._geocoder.failed.connect(
-                lambda msg: self._flash(f"Búsqueda fallida: {msg}"))
+                lambda msg: self._flash(tr("Búsqueda fallida: {msg}", msg=msg)))
         self.geo_res.clear()
-        self.geo_res.addItem("Buscando…")
+        self.geo_res.addItem(tr("Buscando…"))
         self.geo_res.show()
         self._geocoder.search(q)
 
     def _on_places(self, places) -> None:
         self.geo_res.clear()
         if not places:
-            self.geo_res.addItem("Sin resultados")
+            self.geo_res.addItem(tr("Sin resultados"))
         for p in places:
             it = QListWidgetItem(p.name)
             it.setData(Qt.UserRole, (p.lat, p.lon, p.name))
@@ -483,11 +500,8 @@ class SitePanel(QWidget):
                               (lon - d.lon) * 111320.0 * math.cos(math.radians(lat)))
             if dist > 1.0:
                 ans = QMessageBox.question(
-                    self, "Mover el origen del proyecto",
-                    "El proyecto ya tiene ubicación. El punto nuevo pasa a ser "
-                    "el origen (0,0): lo dibujado conserva sus coordenadas "
-                    f"locales y aparece en el sitio nuevo (a {dist:,.0f} m)."
-                    "\n\n¿Mover el origen?")
+                    self, tr("Mover el origen del proyecto"),
+                    tr("El proyecto ya tiene ubicación. El punto nuevo pasa a ser el origen (0,0): lo dibujado conserva sus coordenadas locales y aparece en el sitio nuevo (a {dist} m).\n\n¿Mover el origen?", dist=f"{dist:,.0f}"))
                 if ans != QMessageBox.Yes:
                     return False
         self.sitio.set_location(lat, lon, alt=alt, tz=tz)
@@ -510,36 +524,56 @@ class SitePanel(QWidget):
 
     # ---- 1 · Clima (EPW) ---------------------------------------------------------
     def _build_lang(self) -> None:
-        """Ajoute un sélecteur de langue intuitif en haut du panneau."""
+        """Ajoute un sélecteur de langue intuitif en haut du panneau avec mise à jour instantanée."""
         from PySide6.QtCore import QSettings
-        from PySide6.QtWidgets import QHBoxLayout, QLabel, QComboBox
         h = QHBoxLayout()
         h.setContentsMargins(4, 2, 4, 4)
-        lbl = QLabel(tr("🌐 Langue :") if tr("🌐 Langue :") != "🌐 Langue :" else "🌐 Langue / Idioma:")
+        lbl = QLabel(tr("🌐 Langue / Idioma:"))
         lbl.setStyleSheet("font-size: 11px; color: palette(mid); font-weight: bold;")
         combo = QComboBox()
-        combo.addItem(tr("Français"), "fr")
-        combo.addItem(tr("Español"), "es")
-        combo.addItem(tr("English"), "en")
-        
+        combo.addItem("Français", "fr")
+        combo.addItem("Español", "es")
+        combo.addItem("English", "en")
+        combo.addItem("Português", "pt")
+
         actuelle = obtenir_langue_courante()
         idx = combo.findData(actuelle)
-        if idx >= 0:
-            combo.setCurrentIndex(idx)
-            
+        with QSignalBlocker(combo):
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+
         def on_lang_changed(index):
             code = combo.itemData(index)
+            if not code:
+                return
+            # Change la langue active en mémoire et sauvegarde dans QSettings
             definir_langue_active(code)
-            QSettings().setValue("analisis_sitio/language", code)
-            self.schedule_refresh()
-            if hasattr(self.app, "viewport") and self.app.viewport:
-                self.app.viewport.update()
-                
+            try:
+                QSettings().setValue("analisis_sitio/language", code)
+            except Exception:
+                pass
+            # Reconstruit toute la barre latérale au prochain cycle d'événement Qt
+            QTimer.singleShot(0, self._on_lang_rebuild)
+
         combo.currentIndexChanged.connect(on_lang_changed)
         h.addWidget(lbl)
         h.addWidget(combo)
         h.addStretch(1)
         self._lay.addLayout(h)
+
+    def _on_lang_rebuild(self) -> None:
+        """Reconstruit les widgets du panneau et met à jour la vue 3D après un changement de langue."""
+        self._build_all()
+        # Met à jour le titre de l'onglet docké s'il est accessible
+        try:
+            ext_dict = getattr(self.app.window, "_ext_instances", {}).get(self.sitio.store.key, {})
+            dock = ext_dict.get("dock")
+            if dock is not None and hasattr(dock, "setWindowTitle"):
+                dock.setWindowTitle(tr("Análisis de sitio"))
+        except Exception:
+            pass
+        if hasattr(self.app, "viewport") and self.app.viewport:
+            self.app.viewport.update()
 
     def _build_epw(self) -> None:
         sec = _section("1 · ☁  Cargar archivo EPW", "epw", True)
@@ -626,8 +660,7 @@ class SitePanel(QWidget):
         top.addLayout(col, 1)
         lay.addLayout(top)
         b = QPushButton(tr("Desde la arista seleccionada (apunta al norte)"))
-        b.setToolTip("Selecciona una línea del modelo dibujada hacia el norte "
-                     "geográfico (de sur a norte) y pulsa.")
+        b.setToolTip(tr("Selecciona una línea del modelo dibujada hacia el norte geográfico (de sur a norte) y pulsa."))
         b.clicked.connect(self._on_north_from_edge)
         lay.addWidget(b)
         self.north_hint = _hint("")
@@ -638,7 +671,7 @@ class SitePanel(QWidget):
         if self._busy:
             return
         if self.sitio.datum() is None:
-            self._flash("Ubica primero el proyecto (sección 2).")
+            self._flash(tr("Ubica primero el proyecto (sección 2)."))
             self.refresh()
             return
         deg = ((float(deg) + 180.0) % 360.0) - 180.0
@@ -649,13 +682,13 @@ class SitePanel(QWidget):
         from core.mesh import Edge
         edges = [e for e in self.sitio.scene.selection if isinstance(e, Edge)]
         if len(edges) != 1:
-            self._flash("Selecciona una sola arista que apunte al norte.")
+            self._flash(tr("Selecciona una sola arista que apunte al norte."))
             return
         e = edges[0]
         a, b = e.v0.position, e.v1.position
         dx, dy = b.x() - a.x(), b.y() - a.y()
         if math.hypot(dx, dy) < 1e-6:
-            self._flash("La arista es vertical: no indica una dirección en planta.")
+            self._flash(tr("La arista es vertical: no indica una dirección en planta."))
             return
         if dy < 0 or (abs(dy) < 1e-9 and dx < 0):
             dx, dy = -dx, -dy           # se toma el sentido más cercano a +Y
@@ -684,7 +717,7 @@ class SitePanel(QWidget):
 
     def _on_open_epw(self) -> None:
         path, _f = QFileDialog.getOpenFileName(
-            self, "Abrir archivo de clima", "", "EnergyPlus Weather (*.epw)")
+            self, tr("Abrir archivo de clima"), "", tr("EnergyPlus Weather (*.epw)"))
         if path:
             self.open_epw(path)
 
@@ -698,7 +731,7 @@ class SitePanel(QWidget):
                 text = raw.decode("latin-1")
             info = act.load_epw_text(self.sitio, text)
         except (OSError, clima.EpwError) as exc:
-            QMessageBox.warning(self, "Archivo EPW", str(exc))
+            QMessageBox.warning(self, tr("Archivo EPW"), str(exc))
             return False
         if self.epw_use_loc.isChecked():
             tz = info.get("tz")
@@ -710,7 +743,7 @@ class SitePanel(QWidget):
                                tz=tz)
             else:
                 self.sitio.set_location(info["lat"], info["lon"], tz=tz)
-        self._flash(f"Clima de {info['city'] or 'la estación'} cargado.")
+        self._flash(tr("Clima de {city} cargado.", city=info["city"] or tr("la estación")))
         self.refresh()
         return True
 
@@ -722,11 +755,11 @@ class SitePanel(QWidget):
 
     def _on_save_charts(self) -> None:
         path, _f = QFileDialog.getSaveFileName(
-            self, "Guardar gráficos", "clima.png", "Imagen PNG (*.png)")
+            self, tr("Guardar gráficos"), "clima.png", tr("Imagen PNG (*.png)"))
         if path:
             try:
                 out = exportar.export_charts(self.sitio, path)
-                self._flash("Guardados: " + ", ".join(p.split("/")[-1] for p in out))
+                self._flash(tr("Guardados: {files}", files=", ".join(p.split("/")[-1] for p in out)))
             except act.SiteError as exc:
                 self._flash(str(exc))
 
@@ -814,7 +847,7 @@ class SitePanel(QWidget):
                           ("Trayectoria del día seleccionado", "day"),
                           ("Etiquetas de horas y meses", "labels"),
                           ("Rayo solar al centro", "ray")):
-            lay.addWidget(self._bind(QCheckBox(text), ["sun", key]))
+            lay.addWidget(self._bind(QCheckBox(tr(text)), ["sun", key]))
         self.sun_color = self._bind(ColorButton(), ["sun", "color"])
         self.sun_ball = self._bind(ColorButton(), ["sun", "ball"])
         lay.addLayout(_row("Diagrama", self.sun_color, "Sol", self.sun_ball))
@@ -884,7 +917,7 @@ class SitePanel(QWidget):
         for text, key in (("Rosa de vientos 3D sobre el suelo (requiere EPW)", "rose"),
                           ("Flecha del viento horario (EPW, en azul)", "hourly"),
                           ("Flechas de viento", "show"), ("Animar flujo", "anim")):
-            lay.addWidget(self._bind(QCheckBox(text), ["wind", key]))
+            lay.addWidget(self._bind(QCheckBox(tr(text)), ["wind", key]))
         form = wrapping_form(None)
         form.addRow(tr("Opacidad rosa 3D"), self._bind(_dspin(0.15, 1, 0.05, 2),
                                                 ["wind", "opa"]))
@@ -897,7 +930,7 @@ class SitePanel(QWidget):
         lay.addLayout(form)
         lay.addWidget(QLabel(tr("Direcciones (de dónde viene el viento)")))
         self.winds = QTableWidget(0, 5)
-        self.winds.setHorizontalHeaderLabels(["", "Etiqueta", "Dir °", "m/s", ""])
+        self.winds.setHorizontalHeaderLabels(["", tr("Etiqueta"), tr("Dir °"), tr("m/s"), ""])
         hh = self.winds.horizontalHeader()
         hh.setSectionResizeMode(1, QHeaderView.Stretch)
         for c in (0, 2, 3, 4):
@@ -970,7 +1003,7 @@ class SitePanel(QWidget):
     def _on_wind_add(self) -> None:
         from .datos import WIND_COLORS
         winds = self._winds_from_table()
-        winds.append({"on": True, "label": f"Viento {len(winds) + 1}",
+        winds.append({"on": True, "label": f"{tr('Viento')} {len(winds) + 1}",
                       "dir": 90.0, "speed": 2.0,
                       "color": WIND_COLORS[len(winds) % len(WIND_COLORS)]})
         act.set_winds(self.sitio, winds)
@@ -1080,7 +1113,7 @@ class SitePanel(QWidget):
         row.addWidget(b)
         b = QPushButton(tr("Quitar contexto"))
         b.clicked.connect(lambda: act.set_context(self.sitio, None,
-                                                  "Contexto quitado."))
+                                                  tr("Contexto quitado.")))
         row.addWidget(b)
         lay.addLayout(row)
         lay.addWidget(_hint("El contexto es un grupo bloqueado en la capa "
@@ -1096,7 +1129,7 @@ class SitePanel(QWidget):
         try:
             z = act.load_basemap(self.sitio, v["provider"], v["extent"],
                                  v.get("zoom", 0), v.get("custom", ""))
-            self._flash(f"Mapa base: {v['extent']:.0f} m, zoom {z}.")
+            self._flash(tr("Mapa base: {extent} m, zoom {z}.", extent=f"{v['extent']:.0f}", z=z))
             self.refresh()
         except act.SiteError as exc:
             self._flash(str(exc))
@@ -1120,7 +1153,7 @@ class SitePanel(QWidget):
     def _on_osm(self) -> None:
         d = self.sitio.datum()
         if d is None:
-            self._flash("Ubica el proyecto antes de cargar edificios.")
+            self._flash(tr("Ubica el proyecto antes de cargar edificios."))
             return
         if self._osm is None:
             from .osm import OsmWorker
@@ -1130,11 +1163,11 @@ class SitePanel(QWidget):
         r = self.sitio.store.view()["ctx"]["radius"]
         if self._osm.start(d.lat, d.lon, r):
             self.osm_btn.setEnabled(False)
-            self.osm_btn.setText("Descargando de OpenStreetMap…")
+            self.osm_btn.setText(tr("Descargando de OpenStreetMap…"))
 
     def _on_osm_done(self, payload) -> None:
         self.osm_btn.setEnabled(True)
-        self.osm_btn.setText("Cargar edificios 3D")
+        self.osm_btn.setText(tr("Cargar edificios 3D"))
         try:
             act.context_from_osm(self.sitio, payload)
         except act.SiteError as exc:
@@ -1143,7 +1176,7 @@ class SitePanel(QWidget):
 
     def _on_osm_failed(self, msg) -> None:
         self.osm_btn.setEnabled(True)
-        self.osm_btn.setText("Cargar edificios 3D")
+        self.osm_btn.setText(tr("Cargar edificios 3D"))
         QMessageBox.warning(self, "OpenStreetMap", msg)
 
     def _on_ctx_show(self, on) -> None:
@@ -1257,7 +1290,7 @@ class SitePanel(QWidget):
                 ("Duplicar", lambda: self._mass_op("dup")),
                 ("Seleccionar", lambda: self._mass_op("sel")),
                 ("Eliminar", lambda: self._mass_op("del")))):
-            b = QPushButton(txt)
+            b = QPushButton(tr(txt))
             b.clicked.connect(fn)
             g.addWidget(b, i // 3, i % 3)
         mf.addRow(g)
@@ -1319,7 +1352,7 @@ class SitePanel(QWidget):
         if p["kind"] == "mass":
             rows += [("Volumen", f"{st['volume']:,.0f} m³"),
                      ("Área construida", f"{st['gfa']:,.0f} m² "
-                                         f"({st['floors']} pisos)"),
+                                         f"({st['floors']} {tr('pisos')})"),
                      ("Cota superior", f"{st['top']:.2f} m")]
         self.mp_kv.setText(_kv(rows))
 
@@ -1412,7 +1445,7 @@ class SitePanel(QWidget):
         lay = QVBoxLayout(sec.body)
         lay.setContentsMargins(6, 6, 6, 6)
         self.icon_q = QLineEdit()
-        self.icon_q.setPlaceholderText("Buscar icono (árbol, bus, hospital…)")
+        self.icon_q.setPlaceholderText(tr("Buscar icono (árbol, bus, hospital…)"))
         self.icon_q.textChanged.connect(self._fill_icons)
         lay.addWidget(self.icon_q)
         self.icons = QListWidget()
@@ -1501,7 +1534,7 @@ class SitePanel(QWidget):
     def _place_pin(self, with_icon: bool) -> None:
         icon = self._chosen_icon() if with_icon else None
         if with_icon and not icon:
-            self._flash("Elige primero un icono de la lista.")
+            self._flash(tr("Elige primero un icono de la lista."))
             return
         name = next((n.split()[0].capitalize() for g, n in ICONS if g == icon),
                     None)
@@ -1589,7 +1622,7 @@ class SitePanel(QWidget):
                  ("Aérea", "persp"), ("Desde el sol", "sun"),
                  ("Encuadrar", "fit"), ("Persp./Paral.", "proj"))
         for i, (t, k) in enumerate(views):
-            b = QPushButton(t)
+            b = QPushButton(tr(t))
             b.clicked.connect(lambda _c=False, k=k: self.set_view(k))
             g.addWidget(b, i // 3, i % 3)
         lay.addLayout(g)
@@ -1617,7 +1650,7 @@ class SitePanel(QWidget):
         elif key == "sun":
             alt, az = self.sitio.sun_now()
             if alt <= 0:
-                self._flash("El sol está bajo el horizonte a esta hora.")
+                self._flash(tr("El sol está bajo el horizonte a esta hora."))
                 return
             dx, dy, _dz = self.sitio.frame().direction(alt, az)
             cam.yaw = math.atan2(dy, dx)
@@ -1657,14 +1690,13 @@ class SitePanel(QWidget):
         corner = QComboBox()
         for k, t in (("tr", "Arriba derecha"), ("tl", "Arriba izquierda"),
                      ("br", "Abajo derecha"), ("bl", "Abajo izquierda")):
-            corner.addItem(t, k)
+            corner.addItem(tr(t), k)
         form.addRow(tr("Posición"), self._bind(corner, ["view", "notes_corner"]))
         narrow(corner)
         lay.addLayout(form)
         # Oculto al iniciar IngeTrazo: es un ajuste de la sesión, no del
         # documento (un .igz no lo vuelve a encender al abrirse).
-        self.notes_on = QCheckBox("Mostrar panel flotante de información y "
-                                  "convenciones")
+        self.notes_on = QCheckBox(tr("Mostrar panel flotante de información y convenciones"))
         self.notes_on.toggled.connect(self._on_notes)
         lay.addWidget(self.notes_on)
         self._lay.addWidget(sec)
@@ -1684,13 +1716,13 @@ class SitePanel(QWidget):
         return "".join(c if c.isalnum() else "_" for c in n).strip("_") or "sitio"
 
     def _on_png(self) -> None:
-        path = self._ask_save("Exportar imagen", self._stem() + "_analisis.png",
-                              "Imagen PNG (*.png)")
+        path = self._ask_save(tr("Exportar imagen"), self._stem() + "_analisis.png",
+                              tr("Imagen PNG (*.png)"))
         if path:
             try:
                 exportar.export_png(self.sitio, self.overlay, path,
                                     self.res.currentData())
-                self._flash(f"Imagen guardada: {path}")
+                self._flash(tr("Imagen guardada: {path}", path=path))
             except act.SiteError as exc:
                 self._flash(str(exc))
 
@@ -1708,18 +1740,18 @@ class SitePanel(QWidget):
                      ("masses", "Masas y lotes"),
                      ("sel", "Selección (caras o grupos)"),
                      ("none", "Sólo el suelo")):
-            tgt.addItem(t, k)
+            tgt.addItem(tr(t), k)
         form.addRow(tr("Superficies"), self._bind(tgt, r + ["target"]))
         resn = QComboBox()
         for k, t in (("faces:1.0", "Por superficie (un color por cara)"),
                      ("cells:2.0", "Malla de 2 m"), ("cells:1.0", "Malla de 1 m"),
                      ("cells:0.5", "Malla de 0.5 m")):
-            resn.addItem(t, k)
+            resn.addItem(tr(t), k)
         resn.currentIndexChanged.connect(self._on_rad_res)
         self.rad_res = resn
         form.addRow(tr("Resolución"), resn)
         self.ground_r = _dspin(0, 2000, 10, 0, " m")
-        self.ground_r.setSpecialValueText("automático")
+        self.ground_r.setSpecialValueText(tr("automático"))
         self._bind(self.ground_r, r + ["ground_r"])
         form.addRow(self._bind(QCheckBox(tr("Suelo alrededor")), r + ["ground"]),
                     _row(QLabel(tr("margen")), self.ground_r))
@@ -1732,7 +1764,7 @@ class SitePanel(QWidget):
         for k, t in (("day", "Día de la sección 4"), ("month", "Un mes"),
                      ("period", "Periodo de análisis (sección 1)"),
                      ("year", "Año completo")):
-            per.addItem(t, k)
+            per.addItem(tr(t), k)
         self.rad_per = self._bind(per, r + ["period"], after=self._sync_rad)
         form.addRow(tr("Periodo"), per)
         mon = QComboBox()
@@ -1762,7 +1794,7 @@ class SitePanel(QWidget):
         form.addRow(tr("Hasta"), self._bind(_ispin(1, 24, ":00 h"), d + ["h1"]))
         step = QComboBox()
         for m in (15, 20, 30, 60):
-            step.addItem(f"cada {m} min", m)
+            step.addItem(tr("cada {m} min", m=m), m)
         form.addRow(tr("Intervalo"), self._bind(step, d + ["step"]))
         narrow(step)
         lay.addLayout(form)
@@ -1846,8 +1878,8 @@ class SitePanel(QWidget):
 
     def _progress(self, title: str):
         from PySide6.QtWidgets import QApplication, QProgressDialog
-        dlg = QProgressDialog(title, "Cancelar", 0, 1000, self.app.window)
-        dlg.setWindowTitle("Análisis de sitio")
+        dlg = QProgressDialog(tr(title), tr("Cancelar"), 0, 1000, self.app.window)
+        dlg.setWindowTitle(tr("Análisis de sitio"))
         dlg.setWindowModality(Qt.WindowModal)
         dlg.setMinimumDuration(0)
         dlg.setValue(0)
@@ -1877,7 +1909,7 @@ class SitePanel(QWidget):
             return
         dlg.close()
         if res is None:
-            self._flash(cancelled)
+            self._flash(tr(cancelled))
         self.refresh()
 
     def _on_rad(self) -> None:
@@ -1929,7 +1961,7 @@ class SitePanel(QWidget):
                 sc.groups.remove(g)
             sc.selection.discard(g)
 
-        run_step(self.app.viewport, mutate, message="Resultado quitado.")
+        run_step(self.app.viewport, mutate, message=tr("Resultado quitado."))
         self.refresh()
 
     def _refresh_rad(self) -> None:
@@ -1944,13 +1976,10 @@ class SitePanel(QWidget):
         self.ground_r.setEnabled(bool(v.get("ground", True)))
         epw = st.epw()
         self.rad_src.setText(
-            f"Clima: EPW de {epw['info'].get('city') or 'la estación'} "
-            "(DNI y DHI horarias)." if epw else
-            "Sin EPW: se usa un cielo despejado teórico (valores máximos "
-            "posibles). Carga un EPW en la sección 1 para el clima real.")
+            tr("Clima: EPW de {city} (DNI y DHI horarias).", city=epw["info"].get("city") or tr("la estación")) if epw else
+            tr("Sin EPW: se usa un cielo despejado teórico (valores máximos posibles). Carga un EPW en la sección 1 para el clima real."))
         m, d = solar.month_day(st.when()[0])
-        self.sd_date.setText(f"Día: {d} de {clima.MONTHS_LONG[m - 1]} (la fecha "
-                             "de la sección 4).")
+        self.sd_date.setText(tr("Día: {d} de {month} (la fecha de la sección 4).", d=d, month=clima.MONTHS_LONG[m - 1]))
         groups = {k: rad.find_group(st.scene, key, k) for k in rad.KINDS}
         shown = rad.visible_map(st.scene, key)
         self.map_box.setVisible(any(groups.values()))
@@ -1960,7 +1989,7 @@ class SitePanel(QWidget):
             for k, title in (("radiation", "Mapa de radiación solar"),
                              ("shadows", "Estudio de sombras (horas de sombra)")):
                 if groups[k] is not None:
-                    self.map_pick.addItem(title, k)
+                    self.map_pick.addItem(tr(title), k)
             kind = (shown.ext[key]["kind"] if shown is not None else None)
             self.map_pick.setCurrentIndex(max(0, self.map_pick.findData(kind)))
         self.rad_opts.setVisible(kind == "radiation")
@@ -1977,7 +2006,7 @@ class SitePanel(QWidget):
                     ("Clima", data.get("source", "—"))]
             if sm:
                 rows += [("Superficies", f"{sm['faces']} ({sm['area']:,.0f} m²)"),
-                         ("Puntos de cálculo", f"{sm['cells']:,} · malla "
+                         ("Puntos de cálculo", f"{sm['cells']:,} · {tr('malla')} "
                                                f"{sm['grid']:.2g} m"),
                          ("Mínimo / máximo", f"{sm['min']:,.1f} / "
                                              f"{sm['max']:,.1f} kWh/m²"),
@@ -2042,8 +2071,8 @@ class SitePanel(QWidget):
                              f"{rec['ws']:.1f} m/s"))
             self.sun_kv.setText(_kv(rows))
             self.anim_btn.setChecked(st.animating_sun)
-            self.anim_btn.setText("■  Detener" if st.animating_sun
-                                  else "▶  Animar recorrido solar")
+            self.anim_btn.setText(tr("■  Detener") if st.animating_sun
+                                  else tr("▶  Animar recorrido solar"))
             self.lat.setValue(s["lat"])
             self.lon.setValue(s["lon"])
             self.north.setValue(s["north"])
@@ -2051,16 +2080,12 @@ class SitePanel(QWidget):
             for w in (self.north, self.north_dial):
                 w.setEnabled(s["located"])
             self.north_hint.setText(
-                "Dónde queda el norte geográfico en el modelo. Gira el sol, "
-                "el diagrama, el mapa base y el terreno; la geometría no se "
-                "mueve." if s["located"] else
-                "Ubica primero el proyecto (sección 2) para fijar su norte.")
+                tr("Dónde queda el norte geográfico en el modelo. Gira el sol, el diagrama, el mapa base y el terreno; la geometría no se mueve.") if s["located"] else
+                tr("Ubica primero el proyecto (sección 2) para fijar su norte."))
             self.legend.set_rows(legend_rows(st))
             self.loc_hint.setText(
-                "Ubicación del proyecto (datum de IngeTrazo): la usan el sol, "
-                "las sombras, el mapa y el terreno." if s["located"] else
-                "⚠ El proyecto no tiene ubicación: se usa un sitio por defecto. "
-                "Busca la dirección, elige en el mapa o abre un EPW.")
+                tr("Ubicación del proyecto (datum de IngeTrazo): la usan el sol, las sombras, el mapa y el terreno.") if s["located"] else
+                tr("⚠ El proyecto no tiene ubicación: se usa un sitio por defecto. Busca la dirección, elige en el mapa o abre un EPW."))
             months = set(int(x) for x in v["sun"]["months"])
             for i, cb in enumerate(self.month_checks):
                 cb.setChecked(i + 1 in months)
@@ -2082,11 +2107,12 @@ class SitePanel(QWidget):
             if bl:
                 tagged = sum(1 for b in bl if b.get("src") == "tag")
                 hidden = sum(1 for b in bl if b.get("hidden"))
-                self.ctx_count.setText(
-                    f"{len(bl)} edificios ({tagged} con altura en OSM"
-                    + (f", {hidden} ocultos" if hidden else "") + ").")
+                if hidden:
+                    self.ctx_count.setText(tr("{n} edificios ({tagged} con altura en OSM, {hidden} ocultos).", n=len(bl), tagged=tagged, hidden=hidden))
+                else:
+                    self.ctx_count.setText(tr("{n} edificios ({tagged} con altura en OSM).", n=len(bl), tagged=tagged))
             else:
-                self.ctx_count.setText("Sin edificios de contexto.")
+                self.ctx_count.setText(tr("Sin edificios de contexto."))
             self.ctx_show.setEnabled(g is not None)
             self.ctx_show.setChecked(g is not None and not g.hidden)
             self.ctx_edit.setChecked(st.edit_context)

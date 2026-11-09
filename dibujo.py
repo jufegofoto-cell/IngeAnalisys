@@ -187,7 +187,7 @@ class SkyGeometry:
         self.cardinals = [("N", fr.ground(0, R * 1.14, z), True),
                           ("E", fr.ground(90, R * 1.14, z), False),
                           ("S", fr.ground(180, R * 1.14, z), False),
-                          ("O", fr.ground(270, R * 1.14, z), False)]
+                          (tr("O"), fr.ground(270, R * 1.14, z), False)]
         tip = fr.ground(0, R * 1.26, z)
         self.north_arrow = np.asarray([
             tip, _offset(fr, R * 1.19, 1.6, z), fr.ground(0, R * 1.21, z),
@@ -644,9 +644,8 @@ class Overlay:
         lines = [str(data.get("period", "")), str(data.get("source", ""))]
         title = (tr("Horas de sol (asoleamiento)") if data.get("show") == "sun"
                  else tr("Horas de sombra")) if shadows else tr("Radiación incidente")
-        unit = ("h en el intervalo (Δt {} min)".format(
-                    data.get("period", "").split("Δt ")[-1].split(" min")[0])
-                if shadows else "kWh/m² en el periodo")
+        unit = (tr("h en el intervalo (Δt {dt} min)", dt=data.get("period", "").split("Δt ")[-1].split(" min")[0])
+                if shadows else tr("kWh/m² en el periodo"))
         if shadows:
             lines = lines[:1]
         fm = QFontMetricsF(small_f)
@@ -963,13 +962,13 @@ def legend_rows(sitio, counts: bool = False) -> list[dict]:
     if rings.get("n", 0):
         txt = tr("Anillos de distancia")
         if counts:
-            txt += f" (cada {float(rings['step']):g} m)"
+            txt += f" ({tr('cada')} {float(rings['step']):g} m)"
         rows.append({"sym": "ring", "c": rings["color"], "s": txt})
     wv = view["wind"]
     if wv["show"]:
         for w in sitio.store.content()["winds"]:
             if w.get("on", True):
-                txt = str(w.get("label", "") or "Viento")
+                txt = str(w.get("label", "") or tr("Viento"))
                 if counts:
                     txt += f" ({float(w.get('speed', 0)):.1f} m/s"
                     txt += f", {w['freq']}%)" if w.get("freq") else ")"
