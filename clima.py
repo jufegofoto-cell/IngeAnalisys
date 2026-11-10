@@ -24,16 +24,40 @@ SPEED_EDGES = (0.5, 2.0, 4.0, 6.0, 8.0, math.inf)
 SPEED_LABELS = ("0.5–2", "2–4", "4–6", "6–8", ">8")
 CALM = 0.5
 
+# ==============================================================================
+# CLASSE PROXY POUR TRADUCTION DYNAMIQUE DES LISTES ET TUPLES
+# Permet de traduire automatiquement les mois et directions cardinales
+# lors de l'accès indexé ou de l'itération, sans impacter le code appelant.
+# ==============================================================================
+class _LocalizedTuple(tuple):
+    """Tuple traduisant ses éléments à la volée selon la langue active."""
+    def __getitem__(self, item):
+        try:
+            from .i18n import tr  # Contexte de package plugin IngeTrazo
+        except ImportError:
+            from i18n import tr   # Contexte autonome ou de test unitaire
+        val = super().__getitem__(item)
+        return tr(val) if isinstance(val, str) else val
+
+    def __iter__(self):
+        try:
+            from .i18n import tr
+        except ImportError:
+            from i18n import tr
+        for val in super().__iter__():
+            yield tr(val) if isinstance(val, str) else val
+
+
 DIR16 = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
          "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO")
-DIR16_LONG = ("Norte", "Nor-noreste", "Noreste", "Este-noreste", "Este",
-              "Este-sureste", "Sureste", "Sur-sureste", "Sur", "Sur-suroeste",
-              "Suroeste", "Oeste-suroeste", "Oeste", "Oeste-noroeste",
-              "Noroeste", "Nor-noroeste")
-MONTHS = ("Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep",
-          "Oct", "Nov", "Dic")
-MONTHS_LONG = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
-               "agosto", "septiembre", "octubre", "noviembre", "diciembre")
+DIR16_LONG = _LocalizedTuple(("Norte", "Nor-noreste", "Noreste", "Este-noreste", "Este",
+                              "Este-sureste", "Sureste", "Sur-sureste", "Sur", "Sur-suroeste",
+                              "Suroeste", "Oeste-suroeste", "Oeste", "Oeste-noroeste",
+                              "Noroeste", "Nor-noroeste"))
+MONTHS = _LocalizedTuple(("Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep",
+                          "Oct", "Nov", "Dic"))
+MONTHS_LONG = _LocalizedTuple(("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+                               "agosto", "septiembre", "octubre", "noviembre", "diciembre"))
 
 #: Campos horarios que se conservan (nombre → columna del EPW).
 FIELDS = {"t": 6, "rh": 8, "ghr": 13, "dni": 14, "dhr": 15, "wd": 20, "ws": 21}

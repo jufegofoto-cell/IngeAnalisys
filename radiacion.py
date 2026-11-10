@@ -35,6 +35,15 @@ import numpy as np
 
 from core.sun import solar_position
 
+# ==============================================================================
+# IMPORTATION DU MODULE DE LOCALISATION (i18n)
+# Fournit la fonction tr() pour la traduction des libellés et textes de statut.
+# ==============================================================================
+try:
+    from .i18n import tr  # Contexte d'exécution dans le plugin IngeTrazo
+except ImportError:
+    from i18n import tr   # Contexte autonome ou de test unitaire
+
 from . import solar
 
 YEAR = solar.YEAR
@@ -163,7 +172,7 @@ def sun_bins(site: dict, hours, epw=None, step_deg: float | None = None):
     dirs = np.asarray([fr.direction(a, z) for a, z in bins], float).reshape(-1, 3)
     w = np.asarray(list(bins.values()), float)
     return dirs, w, dhi_t, ghi_t, ("EPW" if epw is not None else
-                                  "cielo despejado teórico")
+                                  tr("cielo despejado teórico"))
 
 
 def tregenza(north: float = 0.0):
@@ -531,15 +540,35 @@ OFFSET = 0.08            # m sobre la superficie: sin «z-fighting» de lejos
 
 
 def find_group(scene, key: str, kind: str = "radiation"):
+    # Recherche d'abord par la clé exacte de l'extension active
     for g in scene.groups:
         ext = getattr(g, "ext", None) or {}
         if isinstance(ext.get(key), dict) and ext[key].get("kind") == kind:
             return g
+    # Recherche de repli pour reconnaître les groupes créés avec d'anciennes clés ou backups
+    for g in scene.groups:
+        ext = getattr(g, "ext", None) or {}
+        for k, v in ext.items():
+            if "analisis_sitio" in str(k) and isinstance(v, dict) and v.get("kind") == kind:
+                return g
     return None
 
 
 def map_groups(scene, key: str) -> list:
-    return [g for g in (find_group(scene, key, k) for k in KINDS) if g is not None]
+    # Retourne tous les groupes de cartes présents dans la scène (actifs ou hérités)
+    out = []
+    for g in scene.groups:
+        ext = getattr(g, "ext", None) or {}
+        if isinstance(ext.get(key), dict) and ext[key].get("kind") in KINDS:
+            if g not in out:
+                out.append(g)
+            continue
+        for k, v in ext.items():
+            if "analisis_sitio" in str(k) and isinstance(v, dict) and v.get("kind") in KINDS:
+                if g not in out:
+                    out.append(g)
+                break
+    return out
 
 
 def visible_map(scene, key: str):
@@ -583,7 +612,7 @@ def build_group(key: str, targets: Targets, res: dict, mode: str,
         for e in mesh.edges:                 # sin la trama de triángulos
             if len(e.faces) > 1:
                 e.hidden = True
-    g = Group(mesh, name=KINDS[kind])
+    g = Group(mesh, name=tr(KINDS[kind]))
     g.component = False
     g.ext = {key: dict(meta, kind=kind, mode=mode,
                        values=[round(v, 3) for v in values[:len(faces)]])}
@@ -848,19 +877,19 @@ def analyse(sitio, settings: dict, progress=None) -> dict | None:
     per = settings.get("period", "day")
     m, d = solar.month_day(doy)
     from .clima import MONTHS, MONTHS_LONG
-    label = {"day": f"{d} de {MONTHS_LONG[m - 1]}",
+    label = {"day": f"{d} {MONTHS_LONG[m - 1]}",
              "month": MONTHS_LONG[int(settings.get('month', 6)) - 1].capitalize(),
-             "period": "Periodo de análisis ({}–{}, {}–{} h)".format(
-                 MONTHS[view['period']['m0'] - 1], MONTHS[view['period']['m1'] - 1],
-                 view['period']['h0'], view['period']['h1']),
-             "year": "Año completo"}.get(per, per)
+             "period": tr("Periodo de análisis ({m0}–{m1}, {h0}–{h1} h)",
+                 m0=MONTHS[view['period']['m0'] - 1], m1=MONTHS[view['period']['m1'] - 1],
+                 h0=view['period']['h0'], h1=view['period']['h1']),
+             "year": tr("Año completo")}.get(per, per)
     meta = {"period": label, "source": res["source"], "grid": round(grid, 2),
             "palette": settings.get("palette", "ecotect"),
             "auto": bool(settings.get("auto", True)),
             "vmin": float(settings.get("vmin", 0.0)),
             "vmax": float(settings.get("vmax", 1000.0))}
     new = build_group(key, T, res, settings.get("mode", "cells"), meta)
-    _place(sitio, "radiation", new, "Mapa de radiación listo.")
+    _place(sitio, "radiation", new, tr("Mapa de radiación listo."))
     a, tot = res["area"], res["cell"]
     summary = {
         "faces": T.n_faces, "cells": len(tot), "area": float(a.sum()),
@@ -897,16 +926,15 @@ def shadow_study(sitio, settings: dict, progress=None) -> dict | None:
     key = sitio.store.key
     m, d = solar.month_day(doy)
     caption = (f"{MONTHS[m - 1]} {d} · {solar.fmt_hour(h0)}→{solar.fmt_hour(h1)}"
-               f" · Δt {step} min · {res['steps']} pasos")
-    meta = {"period": caption, "source": f"{res['hours']:.1f} h de sol en el "
-                                         "intervalo",
+               f" · Δt {step} min · {res['steps']} {tr('pasos')}")
+    meta = {"period": caption, "source": tr("{hours} h de sol en el intervalo", hours=f"{res['hours']:.1f}"),
             "grid": round(grid, 2), "palette": settings.get("palette", "grises"),
             "show": settings.get("show", "shade"),
             "auto": False, "vmin": 0.0, "vmax": float(res["hours"]),
             "steps": res["steps"], "hours": res["hours"]}
     new = build_group(key, T, res, settings.get("mode", "cells"), meta,
                       kind="shadows")
-    _place(sitio, "shadows", new, "Estudio de sombras listo.")
+    _place(sitio, "shadows", new, tr("Estudio de sombras listo."))
     a, sh = res["area"], res["cell"]
     summary = {"faces": T.n_faces, "cells": len(sh), "area": float(a.sum()),
                "steps": res["steps"], "hours": res["hours"], "grid": grid,

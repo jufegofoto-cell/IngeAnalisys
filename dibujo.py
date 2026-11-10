@@ -22,6 +22,11 @@ from PySide6.QtGui import (QBrush, QColor, QFont, QFontMetricsF, QPainter,
 
 from . import clima, solar
 
+try:
+    from .i18n import tr
+except ImportError:
+    from i18n import tr
+
 MONTHS = clima.MONTHS
 HOURLY_WIND = "#2f6fe0"          # la flecha del viento horario (EPW)
 
@@ -182,7 +187,7 @@ class SkyGeometry:
         self.cardinals = [("N", fr.ground(0, R * 1.14, z), True),
                           ("E", fr.ground(90, R * 1.14, z), False),
                           ("S", fr.ground(180, R * 1.14, z), False),
-                          ("O", fr.ground(270, R * 1.14, z), False)]
+                          (tr("O"), fr.ground(270, R * 1.14, z), False)]
         tip = fr.ground(0, R * 1.26, z)
         self.north_arrow = np.asarray([
             tip, _offset(fr, R * 1.19, 1.6, z), fr.ground(0, R * 1.21, z),
@@ -637,11 +642,10 @@ class Overlay:
         pad, bw, bh = 12 * ls, 18 * ls, 230 * ls
         title_f, small_f = _font(13 * ls, True), _font(10.5 * ls)
         lines = [str(data.get("period", "")), str(data.get("source", ""))]
-        title = ("Horas de sol (asoleamiento)" if data.get("show") == "sun"
-                 else "Horas de sombra") if shadows else "Radiación incidente"
-        unit = ("h en el intervalo (Δt {} min)".format(
-                    data.get("period", "").split("Δt ")[-1].split(" min")[0])
-                if shadows else "kWh/m² en el periodo")
+        title = (tr("Horas de sol (asoleamiento)") if data.get("show") == "sun"
+                 else tr("Horas de sombra")) if shadows else tr("Radiación incidente")
+        unit = (tr("h en el intervalo (Δt {dt} min)", dt=data.get("period", "").split("Δt ")[-1].split(" min")[0])
+                if shadows else tr("kWh/m² en el periodo"))
         if shadows:
             lines = lines[:1]
         fm = QFontMetricsF(small_f)
@@ -894,27 +898,27 @@ def notes_rows(sitio) -> list[dict]:
     rise, sset = sitio.sun_times()
     tz = s["tz"]
     rows = [{"t": "title", "s": view["view"].get("notes_title")
-             or "ANÁLISIS DE SITIO"}]
+             or tr("ANÁLISIS DE SITIO")}]
     name = view.get("site_name") or ""
     if name:
         rows.append({"t": "sub", "s": name})
     rows += [
-        {"t": "kv", "k": "Ubicación",
+        {"t": "kv", "k": tr("Ubicación"),
          "v": f"{s['lat']:.4f}, {s['lon']:.4f}" + ("" if s["located"]
-                                                   else " (sin ubicar)")},
-        {"t": "kv", "k": "Fecha", "v": f"{d} de {clima.MONTHS_LONG[m - 1]}"},
-        {"t": "kv", "k": "Hora",
+                                                   else f" ({tr('sin ubicar')})")},
+        {"t": "kv", "k": tr("Fecha"), "v": f"{d} {clima.MONTHS_LONG[m - 1]}"},
+        {"t": "kv", "k": tr("Hora"),
          "v": f"{solar.fmt_hour(hour)} (UTC{'+' if tz >= 0 else ''}{tz})"},
-        {"t": "kv", "k": "Sol", "v": f"alt {alt:.1f}° · az {az:.1f}°"},
-        {"t": "kv", "k": "Amanecer / ocaso",
+        {"t": "kv", "k": tr("Sol"), "v": f"alt {alt:.1f}° · az {az:.1f}°"},
+        {"t": "kv", "k": tr("Amanecer / ocaso"),
          "v": f"{solar.fmt_hour(rise)} / {solar.fmt_hour(sset)}"},
     ]
     sh = sitio.shadows()
     if sh is not None and sh.enabled:
-        rows.append({"t": "kv", "k": "Sombras", "v": "proyectadas"})
+        rows.append({"t": "kv", "k": tr("Sombras"), "v": tr("proyectadas")})
     rec = sitio.hour_record()
     if rec:
-        rows.append({"t": "kv", "k": "Clima a esta hora",
+        rows.append({"t": "kv", "k": tr("Clima a esta hora"),
                      "v": f"{rec['t']:.1f} °C · {rec['rh']:.0f} % · "
                           f"{rec['ws']:.1f} m/s"})
     rows.append({"t": "sep"})
@@ -922,10 +926,10 @@ def notes_rows(sitio) -> list[dict]:
     stats = sitio.stats()
     if stats:
         rows.append({"t": "sep"})
-        rows.append({"t": "kv", "k": "T media (periodo)",
+        rows.append({"t": "kv", "k": tr("T media (periodo)"),
                      "v": f"{stats['avg_t']:.1f} °C"})
-        rows.append({"t": "kv", "k": "HR media", "v": f"{stats['avg_rh']:.0f} %"})
-        rows.append({"t": "kv", "k": "Calmas", "v": f"{stats['calm'] * 100:.1f} %"})
+        rows.append({"t": "kv", "k": tr("HR media"), "v": f"{stats['avg_rh']:.0f} %"})
+        rows.append({"t": "kv", "k": tr("Calmas"), "v": f"{stats['calm'] * 100:.1f} %"})
     return rows
 
 
@@ -942,29 +946,29 @@ def legend_rows(sitio, counts: bool = False) -> list[dict]:
     if sun.get("diagram", True):
         if sun.get("months"):
             rows.append({"sym": "dot", "c": sun["color"],
-                         "s": "Trayectorias y horas de sol (día 21)"})
+                         "s": tr("Trayectorias y horas de sol (día 21)")})
         if sun.get("band"):
             rows.append({"sym": "band", "c": sun["color"],
-                         "s": "Banda solar anual"})
+                         "s": tr("Banda solar anual")})
         if sun.get("analemma"):
             rows.append({"sym": "line", "c": sun["color"],
-                         "s": "Analemas horarios"})
-    rows.append({"sym": "dot", "c": sun["ball"], "s": "Sol en la fecha y hora"})
+                         "s": tr("Analemas horarios")})
+    rows.append({"sym": "dot", "c": sun["ball"], "s": tr("Sol en la fecha y hora")})
     if sun.get("day", True):
-        rows.append({"sym": "dash", "c": sun["ball"], "s": "Trayectoria del día"})
+        rows.append({"sym": "dash", "c": sun["ball"], "s": tr("Trayectoria del día")})
     if view["view"].get("compass", True):
-        rows.append({"sym": "n", "c": "#ff5a4f", "s": "Norte geográfico"})
+        rows.append({"sym": "n", "c": "#ff5a4f", "s": tr("Norte geográfico")})
     rings = view["rings"]
     if rings.get("n", 0):
-        txt = "Anillos de distancia"
+        txt = tr("Anillos de distancia")
         if counts:
-            txt += f" (cada {float(rings['step']):g} m)"
+            txt += f" ({tr('cada')} {float(rings['step']):g} m)"
         rows.append({"sym": "ring", "c": rings["color"], "s": txt})
     wv = view["wind"]
     if wv["show"]:
         for w in sitio.store.content()["winds"]:
             if w.get("on", True):
-                txt = str(w.get("label", "") or "Viento")
+                txt = str(w.get("label", "") or tr("Viento"))
                 if counts:
                     txt += f" ({float(w.get('speed', 0)):.1f} m/s"
                     txt += f", {w['freq']}%)" if w.get("freq") else ")"
@@ -972,18 +976,18 @@ def legend_rows(sitio, counts: bool = False) -> list[dict]:
                              "s": txt})
     stats = sitio.stats()
     if wv.get("hourly") and stats:
-        rows.append({"sym": "arrow", "c": HOURLY_WIND, "s": "Viento a esta hora"})
+        rows.append({"sym": "arrow", "c": HOURLY_WIND, "s": tr("Viento a esta hora")})
     if wv.get("rose") and stats:
         cols = clima.rose_colors(wv.get("pal", "amber"), wv.get("c0"),
                                  wv.get("c1"))
-        rows.append({"sym": "rose", "c": cols[2], "s": "Rosa de vientos 3D"})
+        rows.append({"sym": "rose", "c": cols[2], "s": tr("Rosa de vientos 3D")})
     ctx = sitio.store.context()
     if ctx.get("buildings"):
-        txt = "Edificios de contexto (OSM)"
+        txt = tr("Edificios de contexto (OSM)")
         if counts:
             txt += f" — {len(ctx['buildings'])}"
         rows.append({"sym": "box", "c": view["ctx"]["color"], "s": txt})
     if sitio.store.content()["pins"]:
         rows.append({"sym": "pin", "c": view["annot"]["color"],
-                     "s": "Anotaciones"})
+                     "s": tr("Anotaciones")})
     return rows
