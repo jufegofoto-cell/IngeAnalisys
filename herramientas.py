@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Herramientas de un clic (con inferencias): ubicar una anotación, el
-centro del diagrama solar… Se crean al pedirlas y no a nivel de módulo:
+"""Herramientas de un clic (con inferencias): el centro del
+diagrama solar… Se crean al pedirlas y no a nivel de módulo:
 una clase ``Tool`` del módulo tendría su propia entrada en el menú
 Extensiones (core/extensions.py), y la entrada es el panel."""
 from __future__ import annotations
@@ -12,7 +12,7 @@ from PySide6.QtGui import QVector3D
 def make_pick_tool(prompt: str, done, cancelled, repeat: bool = False):
     """``done(point, ctx)`` con el punto INFERIDO (extremo, cara, eje…);
     ``cancelled()`` con Esc. Con ``repeat`` sigue activa tras cada clic
-    (varias anotaciones seguidas) hasta Esc."""
+    (varios puntos seguidos) hasta Esc."""
     from tools.base import Tool
 
     class _PickPoint(Tool):

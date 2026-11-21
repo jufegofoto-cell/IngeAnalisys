@@ -43,9 +43,6 @@ class Sitio(QObject):
         self._sun_timer = QTimer(self)
         self._sun_timer.setInterval(120)
         self._sun_timer.timeout.connect(self._sun_tick)
-        self.selected_pin = None                 # id de la anotación elegida
-        self.selected_building = None            # id OSM elegido (edición)
-        self.edit_context = False
         #: Panel flotante de información y convenciones: oculto al iniciar.
         self.show_notes = False
 

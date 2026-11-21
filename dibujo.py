@@ -4,7 +4,7 @@
 Diagrama solar (banda anual, analemas, trayectorias del 21 de cada mes,
 horas), el sol del momento con su rayo, la brújula graduada, los anillos
 de distancia, las flechas de viento animadas, la rosa de vientos sobre el
-suelo, las anotaciones y el recuadro de notas.
+suelo y el recuadro de notas.
 
 Todo está en metros del modelo y se proyecta en bloque con
 ``world_to_pixels`` (miles de puntos por cuadro); la geometría del cielo
@@ -20,7 +20,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import (QBrush, QColor, QFont, QFontMetricsF, QPainter,
                            QPainterPath, QPen, QPolygonF, QRadialGradient)
 
-from . import clima, solar
+from . import clima, fuentes, solar
 
 MONTHS = clima.MONTHS
 HOURLY_WIND = "#2f6fe0"          # la flecha del viento horario (EPW)
@@ -34,11 +34,21 @@ def qcolor(hexc: str, alpha: float = 1.0) -> QColor:
     return c
 
 
-def _font(px: float, bold: bool = False) -> QFont:
-    f = QFont()
-    f.setPixelSize(max(6, int(round(px))))
-    f.setBold(bold)
-    return f
+def _font(px: float, bold: bool = False, family: str | None = None) -> QFont:
+    """Fuente de los textos de la vista: una de las fuentes libres incluidas
+    (la predeterminada si ``family`` no es una de ellas)."""
+    return fuentes.qfont(family, px, bold)
+
+
+def diagram_font(sun: dict) -> tuple[str, float, bool]:
+    """Fuente de los textos del diagrama: (familia, tamaño, negrita). El
+    tamaño 10 es el normal; los demás textos se escalan a partir de él."""
+    try:
+        size = float(sun.get("font_size", 10.0))
+    except (TypeError, ValueError):
+        size = 10.0
+    return (fuentes.family(sun.get("font")), max(4.0, min(size, 40.0)),
+            bool(sun.get("font_bold", False)))
 
 
 class Projector:
@@ -93,8 +103,9 @@ def _polyline(painter, xy, ok) -> None:
 
 
 def _label(painter, pos: QPointF, text: str, px: float, color="#ffffff",
-           bg=None, border=None, bold=True, align="center", pad=3.0) -> QRectF:
-    font = _font(px, bold)
+           bg=None, border=None, bold=True, align="center", pad=3.0,
+           family: str | None = None) -> QRectF:
+    font = _font(px, bold, family)
     painter.setFont(font)
     fm = QFontMetricsF(font)
     w, h = fm.horizontalAdvance(text), fm.height()
@@ -114,9 +125,9 @@ def _label(painter, pos: QPointF, text: str, px: float, color="#ffffff",
 
 
 def _halo_text(painter, pos: QPointF, text: str, px: float, color: str,
-               bold=True) -> None:
+               bold=True, family: str | None = None) -> None:
     """Texto con un contorno oscuro: se lee sobre mapa claro u oscuro."""
-    font = _font(px, bold)
+    font = _font(px, bold, family)
     fm = QFontMetricsF(font)
     w = fm.horizontalAdvance(text)
     path = QPainterPath()
@@ -252,24 +263,25 @@ class Overlay:
         ls = float(view["view"].get("label_scale", 1.0))
         sun = view["sun"]
         sky = self.sky(s, view)
-        if view["view"].get("compass", True):
-            self._compass(painter, P, sky, sun["color"], ls)
-        self._rings(painter, P, sky.frame, view["rings"], ls)
+        # La brújula (puntos cardinales y grados) y los anillos son la base del
+        # diagrama solar: sin «Mostrar diagrama solar» no se dibujan.
+        tf = diagram_font(sun)
+        if sun.get("diagram", True):
+            if view["view"].get("compass", True):
+                self._compass(painter, P, sky, sun["color"], tf)
+            self._rings(painter, P, sky.frame, view["rings"], tf)
         stats = st.stats()
         if view["wind"]["rose"] and stats:
             self._rose(painter, P, sky.frame, view["wind"], stats, ls)
         if sun.get("diagram", True):
-            self._sky(painter, P, sky, sun, ls)
+            self._sky(painter, P, sky, sun, tf)
         self._wind(painter, P, sky.frame, view["wind"],
                    st.store.content()["winds"], st.hour_record(), ls)
         doy, _hour = st.when()
         self._sun(painter, P, s, view, doy, ls)
-        self._pins(painter, P, view, st.store.content()["pins"], ls)
-        if st.edit_context and st.selected_building:
-            self._building(painter, P, st)
         # Paneles flotantes, arriba a la derecha: el de información y
-        # convenciones (casilla en la sección 12) y, debajo de él, el de la
-        # escala de radiación / sombras (casilla en la sección 11). La imagen
+        # convenciones (casilla en la sección 7) y, debajo de él, el de la
+        # escala de radiación / sombras (casilla en la sección 6). La imagen
         # exportada los lleva si están visibles.
         notes_box = None
         if getattr(self.sitio, "show_notes", False):
@@ -277,7 +289,8 @@ class Overlay:
         self._rad_legend(painter, viewport, view, ls, notes_box)
 
     # Brújula y anillos ---------------------------------------------------------------
-    def _compass(self, painter, P, sky, color, ls) -> None:
+    def _compass(self, painter, P, sky, color, tf) -> None:
+        fam, size, bold = tf
         painter.setBrush(Qt.NoBrush)
         painter.setPen(QPen(qcolor(color, 0.95), 2.0))
         _polyline(painter, *P(sky.circle))
@@ -291,12 +304,12 @@ class Overlay:
         for text, p in sky.deg_labels:
             q = P.one(p)
             if q is not None:
-                _halo_text(painter, q, text, 10 * ls, color, bold=False)
+                _halo_text(painter, q, text, size, color, bold=bold, family=fam)
         for text, p, red in sky.cardinals:
             q = P.one(p)
             if q is not None:
-                _halo_text(painter, q, text, 17 * ls,
-                           "#ff5a4f" if red else color)
+                _halo_text(painter, q, text, 1.7 * size,
+                           "#ff5a4f" if red else color, family=fam)
         xy, ok = P(sky.north_arrow)
         if ok.all():
             painter.setPen(Qt.NoPen)
@@ -308,7 +321,8 @@ class Overlay:
             if ok[i] and ok[i + 1]:
                 painter.drawLine(QPointF(*xy[i]), QPointF(*xy[i + 1]))
 
-    def _rings(self, painter, P, fr, rings, ls) -> None:
+    def _rings(self, painter, P, fr, rings, tf) -> None:
+        fam, size, bold = tf
         n, step = int(rings.get("n", 0)), float(rings.get("step", 25.0))
         if n <= 0 or step <= 0:
             return
@@ -323,10 +337,12 @@ class Overlay:
             for az in (205.0, 25.0):
                 q = P.one(fr.ground(az, r + step * 0.12, 0.35))
                 if q is not None:
-                    _halo_text(painter, q, f"{r:g} m", 10 * ls, col, bold=False)
+                    _halo_text(painter, q, f"{r:g} m", size, col, bold=bold,
+                               family=fam)
 
     # Cielo -------------------------------------------------------------------------------
-    def _sky(self, painter, P, sky, sun, ls) -> None:
+    def _sky(self, painter, P, sky, sun, tf) -> None:
+        fam, size, bold = tf
         color = sun["color"]
         if sky.band is not None and len(sky.band):
             q = sky.band.reshape(-1, 3)
@@ -362,22 +378,25 @@ class Overlay:
             xy, ok = P(sky.mark_labels)
             for (h, _p), (x, y), good in zip(sky.marks, xy, ok):
                 if good:
-                    _halo_text(painter, QPointF(x, y), str(h), 10 * ls,
-                               "#ffffff")
+                    _halo_text(painter, QPointF(x, y), str(h), size,
+                               "#ffffff", bold=bold, family=fam)
             for text, p in sky.month_labels:
                 q = P.one(p)
                 if q is not None:
-                    _label(painter, q, text, 11 * ls, color="#111111",
-                           bg=color)
+                    _label(painter, q, text, 1.1 * size, color="#111111",
+                           bg=color, family=fam)
 
     def _sun(self, painter, P, s, view, doy, ls) -> None:
         sun = view["sun"]
         fr = solar.Frame(view["center"], view["radius"], s["north"])
-        if sun.get("day", True):
-            painter.setPen(QPen(qcolor(sun["ball"], 0.95), 1.8, Qt.DashLine))
-            painter.setBrush(Qt.NoBrush)
-            for run in self.day(s, view, doy):
-                _polyline(painter, *P(run))
+        # «Trayectoria del día» gobierna también el sol y su rayo: sin ella
+        # no se dibuja nada de lo que depende de la hora.
+        if not sun.get("day", True):
+            return
+        painter.setPen(QPen(qcolor(sun["ball"], 0.95), 1.8, Qt.DashLine))
+        painter.setBrush(Qt.NoBrush)
+        for run in self.day(s, view, doy):
+            _polyline(painter, *P(run))
         alt, az = self.sitio.sun_now()
         if alt <= -2:
             return
@@ -552,56 +571,6 @@ class Overlay:
         if q is not None:
             _label(painter, q, f"{pct:.1f}%", 10 * ls,
                    bg=QColor(12, 18, 32, 180))
-
-    # Anotaciones ---------------------------------------------------------------------
-    def _pins(self, painter, P, view, pins, ls) -> None:
-        sel = self.sitio.selected_pin
-        for pin in pins:
-            try:
-                x, y, z = (float(v) for v in pin["pos"])
-            except (KeyError, TypeError, ValueError):
-                continue
-            st = pin_style(pin, view["annot"])
-            top = (x, y, z + st["h"])
-            q = P.one(top)
-            if q is None:
-                continue
-            if st["line_on"] and st["h"] > 0:
-                g = P.one((x, y, z))
-                if g is not None:
-                    painter.setPen(QPen(qcolor(st["line"], 0.9), 1.4))
-                    painter.drawLine(g, q)
-                    painter.setPen(Qt.NoPen)
-                    painter.setBrush(qcolor(st["line"]))
-                    painter.drawEllipse(g, 2.5, 2.5)
-            r = max(7.0, min(26.0, P.pixel_size(top, st["size"] / 2.0)))
-            icon = pin.get("icon") or ""
-            if icon and not _has_glyph(icon, r * 1.15):
-                icon = ""                       # sin fuente para ese icono
-            if st["bg"]:
-                painter.setPen(QPen(qcolor(st["color"]), 2.0))
-                painter.setBrush(qcolor(st["bg_color"], 0.92))
-                painter.drawEllipse(q, r, r)
-            if icon:
-                _halo_text(painter, QPointF(q.x(), q.y() + 1), icon, r * 1.15,
-                           st["color"], bold=False)
-            elif not st["bg"]:
-                painter.setPen(Qt.NoPen)
-                painter.setBrush(qcolor(st["color"]))
-                painter.drawEllipse(q, r * 0.45, r * 0.45)
-            else:
-                painter.setPen(Qt.NoPen)
-                painter.setBrush(qcolor(st["color"]))
-                painter.drawEllipse(q, r * 0.38, r * 0.38)
-            if pin.get("id") == sel:
-                painter.setBrush(Qt.NoBrush)
-                painter.setPen(QPen(QColor(242, 115, 41), 3.0))
-                painter.drawEllipse(q, r + 5, r + 5)
-            if st["label_on"] and pin.get("label"):
-                _label(painter, QPointF(q.x() + r + 2, q.y()), pin["label"],
-                       12 * ls, color=st["text"],
-                       bg=QColor(12, 18, 32, 170) if st["bg"] else None,
-                       align="right")
 
     def _building(self, painter, P, st) -> None:
         ctx = st.store.context()
@@ -801,19 +770,6 @@ class Overlay:
         return box
 
 
-_GLYPHS: dict = {}
-
-
-def _has_glyph(text: str, px: float) -> bool:
-    """¿Hay una fuente que dibuje el icono? Si no, se dibuja un punto en
-    vez de un círculo vacío (sistemas sin fuente de emoji)."""
-    if text not in _GLYPHS:
-        fm = QFontMetricsF(_font(px))
-        _GLYPHS[text] = all(fm.inFontUcs4(ord(c)) for c in text
-                            if ord(c) not in (0xFE0F, 0x200D))
-    return _GLYPHS[text]
-
-
 def _smooth(e0, e1, x) -> float:
     t = max(0.0, min(1.0, (x - e0) / (e1 - e0)))
     return t * t * (3 - 2 * t)
@@ -853,12 +809,6 @@ def legend_symbol(painter, sym, color, x, y, fh) -> None:
     elif sym == "line":
         painter.setPen(QPen(qcolor(color, 0.6), 1.2))
         painter.drawLine(QPointF(x, y + 4), QPointF(x + 20, y - 4))
-    elif sym == "pin":
-        painter.setPen(QPen(c, 1.2))
-        painter.drawLine(QPointF(x + 10, y + 7), QPointF(x + 10, y))
-        painter.setPen(QPen(c, 2.0))
-        painter.setBrush(QColor(14, 22, 38))
-        painter.drawEllipse(QPointF(x + 10, y - 2), 5, 5)
     elif sym == "rose":
         painter.setPen(Qt.NoPen)
         painter.setBrush(qcolor(color, 0.85))
@@ -868,20 +818,6 @@ def legend_symbol(painter, sym, color, x, y, fh) -> None:
         painter.setPen(QPen(c.darker(150), 1.0))
         painter.setBrush(c)
         painter.drawRect(QRectF(x + 3, y - 6, 14, 12))
-
-
-def pin_style(pin: dict, annot: dict) -> dict:
-    """El estilo de una anotación: el suyo, o el de nuevas anotaciones."""
-    out = dict(annot)
-    for k in annot:
-        if k in pin and pin[k] is not None:
-            out[k] = pin[k]
-    try:
-        out["h"] = float(out["h"])
-        out["size"] = float(out["size"])
-    except (TypeError, ValueError):
-        out["h"], out["size"] = 6.0, 16.0
-    return out
 
 
 def notes_rows(sitio) -> list[dict]:
@@ -949,13 +885,13 @@ def legend_rows(sitio, counts: bool = False) -> list[dict]:
         if sun.get("analemma"):
             rows.append({"sym": "line", "c": sun["color"],
                          "s": "Analemas horarios"})
-    rows.append({"sym": "dot", "c": sun["ball"], "s": "Sol en la fecha y hora"})
     if sun.get("day", True):
+        rows.append({"sym": "dot", "c": sun["ball"], "s": "Sol en la fecha y hora"})
         rows.append({"sym": "dash", "c": sun["ball"], "s": "Trayectoria del día"})
-    if view["view"].get("compass", True):
+    if sun.get("diagram", True) and view["view"].get("compass", True):
         rows.append({"sym": "n", "c": "#ff5a4f", "s": "Norte geográfico"})
     rings = view["rings"]
-    if rings.get("n", 0):
+    if sun.get("diagram", True) and rings.get("n", 0):
         txt = "Anillos de distancia"
         if counts:
             txt += f" (cada {float(rings['step']):g} m)"
@@ -977,13 +913,4 @@ def legend_rows(sitio, counts: bool = False) -> list[dict]:
         cols = clima.rose_colors(wv.get("pal", "amber"), wv.get("c0"),
                                  wv.get("c1"))
         rows.append({"sym": "rose", "c": cols[2], "s": "Rosa de vientos 3D"})
-    ctx = sitio.store.context()
-    if ctx.get("buildings"):
-        txt = "Edificios de contexto (OSM)"
-        if counts:
-            txt += f" — {len(ctx['buildings'])}"
-        rows.append({"sym": "box", "c": view["ctx"]["color"], "s": txt})
-    if sitio.store.content()["pins"]:
-        rows.append({"sym": "pin", "c": view["annot"]["color"],
-                     "s": "Anotaciones"})
     return rows

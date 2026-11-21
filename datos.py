@@ -1,17 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Lo que el análisis de sitio guarda EN EL DOCUMENTO (.igz).
 
-Cuatro valores en ``scene.plugin_data``, cada uno con su ritmo:
+Tres valores en ``scene.plugin_data``, cada uno con su ritmo:
 
-- ``<key>`` (``app.document_data``): el contenido — anotaciones y vientos.
+- ``<key>`` (``app.document_data``): el contenido — los vientos.
   Cada cambio es un paso de deshacer (``app.set_document_data``).
 - ``<key>.vista``: cómo se ve — colores, radios, casillas. Se escribe
   directo y marca el documento como modificado, sin llenar el historial
   (como el panel de Sombras de IngeTrazo al arrastrar la hora).
 - ``<key>.clima``: el EPW compacto (≈ 400 kB). Aparte, para que deshacer
-  una anotación no copie el año entero de datos horarios.
-- ``<key>.contexto``: los edificios de OpenStreetMap y el grupo que los
-  dibuja; cambia junto con ese grupo en un solo paso (:class:`Paso`).
+  un viento no copie el año entero de datos horarios.
 
 La hora y la fecha del estudio NO están aquí: son las de ``scene.shadows``
 (una sola verdad con las sombras de IngeTrazo). La ubicación es
@@ -23,6 +21,10 @@ import copy
 import json
 
 from core.history import Command
+
+# Fuentes libres de los textos del diagrama (fuentes.py las carga); la
+# primera es la predeterminada. Las mismas que la extensión de SketchUp.
+FONTS = ("Atkinson Hyperlegible", "Noto Sans", "Inter", "Source Sans 3")
 
 PALETTE = ("#e5e7eb", "#f4c27a", "#9ec5fe", "#b9e3a5", "#f3a6a6", "#d5b8f5",
            "#a7e3df")
@@ -36,9 +38,10 @@ def default_view() -> dict:
         "radius": 100.0,
         "center": [0.0, 0.0, 0.0],
         "sun": {"months": [6, 3, 12], "band": True, "analemma": True,
-                "day": True, "labels": True, "ray": True,
-                "color": "#b09c45", "ball": "#ff3b30", "diagram": True},
-        "wind": {"show": False, "anim": False, "rose": True, "hourly": False,
+                "day": False, "labels": True, "ray": False,
+                "color": "#b09c45", "ball": "#ff3b30", "diagram": False,
+                "font": "Atkinson Hyperlegible", "font_size": 10.0, "font_bold": False},
+        "wind": {"show": False, "anim": False, "rose": False, "hourly": False,
                  "height": 8.0, "width": 1.0, "pal": "blue",
                  "c0": "#bfdbfe", "c1": "#1e3a8a", "opa": 0.8, "scale": 0.62},
         "rings": {"n": 4, "step": 25.0, "color": "#5ec8ff"},
@@ -46,14 +49,6 @@ def default_view() -> dict:
                  "notes_title": "ANÁLISIS DE SITIO", "label_scale": 1.0,
                  "notes_corner": "tr"},
         "period": {"m0": 1, "m1": 12, "h0": 0, "h1": 24},
-        "ctx": {"color": "#9aa4b8", "opacity": 0.6, "hscale": 1.0,
-                "radius": 300.0, "def_h": 9.0, "terrain": True},
-        "model": {"floor_h": 3.2, "def_h": 12.0},
-        "annot": {"color": "#facc15", "text": "#ffffff", "line": "#facc15",
-                  "bg": True, "bg_color": "#0e1626", "size": 6.0, "h": 6.0,
-                  "line_on": True, "label_on": True},
-        "map": {"provider": "esri_imagery", "custom": "", "extent": 700.0,
-                "zoom": 0},
         "rad": {"period": "day", "month": 6, "target": "all", "grid": 1.0,
                 "ground": True, "ground_r": 0.0,
                 "mode": "cells", "albedo": 0.2, "palette": "ecotect",
@@ -64,7 +59,7 @@ def default_view() -> dict:
 
 
 def default_content() -> dict:
-    return {"pins": [], "winds": [
+    return {"winds": [
         {"on": True, "label": "Viento-Sur", "dir": 180.0, "speed": 2.5,
          "color": "#b5d16b"},
         {"on": True, "label": "Viento-Oeste", "dir": 270.0, "speed": 2.0,
@@ -114,6 +109,9 @@ class Store:
         key = self.key + ".vista"
         cur = pd.get(key)
         merged = _merge(default_view(), cur)
+        sun = merged["sun"]
+        if sun.get("font") not in FONTS:     # p. ej. «Arial» de la v1.10
+            sun["font"] = FONTS[0]
         if cur != merged:
             pd[key] = merged
         return pd[key]
@@ -130,8 +128,6 @@ class Store:
         if not isinstance(raw, dict):
             return default_content()
         out = default_content()
-        if isinstance(raw.get("pins"), list):
-            out["pins"] = [p for p in raw["pins"] if isinstance(p, dict)]
         if isinstance(raw.get("winds"), list):
             out["winds"] = [w for w in raw["winds"] if isinstance(w, dict)]
         return out
@@ -152,18 +148,9 @@ class Store:
             notify()
         vp.update()
 
-    # ---- Contexto -------------------------------------------------------------
-    def context(self) -> dict:
-        raw = self._pd().get(self.key + ".contexto")
-        return raw if isinstance(raw, dict) else {"buildings": [], "group": None}
-
-    def context_key(self) -> str:
-        return self.key + ".contexto"
-
-
 class Paso(Command):
     """UN paso de deshacer para lo que toca grupos, capas y datos de la
-    extensión a la vez (crear o reconstruir masas, el contexto OSM).
+    extensión a la vez (los mapas de radiación y sombras).
     Las reconstrucciones sustituyen el objeto ``Group`` entero, así que
     basta recordar las listas: los objetos viejos quedan intactos."""
 

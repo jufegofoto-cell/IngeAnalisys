@@ -7,7 +7,7 @@ de una superficie, acumulado en el periodo elegido (kWh/m²):
     I = I_dir + I_dif + I_ref
     I_dir = DNI · cos θ · soleado      (θ: sol ↔ normal; soleado 0/1 por
                                          trazado de rayos contra TODO el
-                                         modelo visible, contexto incluido)
+                                         modelo visible)
     I_dif = DHI · F_cielo              (cielo isótropo; F_cielo medido con
                                          los 145 parches de Tregenza, así
                                          el patio cerrado ve menos cielo)
@@ -406,7 +406,7 @@ class Occluders:
 
 
 def occluders_from_scene(scene, skip=()) -> Occluders:
-    """Triángulos de todo lo visible (modelo, masas, contexto…), menos los
+    """Triángulos de todo lo visible del modelo, menos los
     grupos en ``skip`` (los propios mapas de radiación)."""
     skip_faces = set()
     for g in skip:
@@ -683,6 +683,14 @@ def paint(g, key: str) -> bool:
     return True
 
 
+def ensure_layer(scene, name: str, color=None) -> str:
+    """La capa ``name`` del modelo (se crea si falta)."""
+    from core.layers import Layer
+    if not any(ly.name == name for ly in scene.layers):
+        scene.layers.append(Layer(name, color=color))
+    return name
+
+
 # ---- De principio a fin ------------------------------------------------------------
 
 MAX_CELLS = 60000
@@ -690,17 +698,15 @@ MAX_CELLS = 60000
 
 def collect_targets(sitio, mode: str, grid: float, ground: bool = False,
                     ground_r: float = 0.0) -> Targets:
-    """Superficies a analizar: la selección, las masas y lotes, o todo el
-    modelo visible (sin el contexto OSM ni los mapas), y si se pide un
-    suelo alrededor (donde caen las sombras aunque no haya geometría)."""
+    """Superficies a analizar: la selección o todo el modelo visible (sin
+    los mapas), y si se pide un suelo alrededor (donde caen las sombras
+    aunque no haya geometría)."""
     from core.group import iter_placements
     from core.mesh import Face
 
-    from . import acciones as act
     scene = sitio.scene
     key = sitio.store.key
     maps = map_groups(scene, key)
-    ctx_g = act.context_group(sitio)
     T = Targets()
 
     def add_group(g0):
@@ -716,34 +722,29 @@ def collect_targets(sitio, mode: str, grid: float, ground: bool = False,
                 T.add_face(e, None, grid)
             elif hasattr(e, "mesh") and e not in maps:
                 add_group(e)
-    elif mode == "masses":
-        for g in act.masses(sitio):
-            if scene.entity_visible(g):
-                add_group(g)
     elif mode == "all":
         skip = set()
-        for g in maps + [ctx_g]:
-            if g is not None:
-                skip.update(g.mesh.faces)
+        for g in maps:
+            skip.update(g.mesh.faces)
         for f, m in scene.iter_world_faces():
             if f not in skip and not f.attrs.get("hidden"):
                 T.add_face(f, _mat(m), grid)
     if ground:
-        add_ground(T, sitio, grid, ground_r, maps + [ctx_g])
+        add_ground(T, sitio, grid, ground_r, maps)
     return T
 
 
 def add_ground(T: Targets, sitio, grid: float, radius: float, skip) -> None:
     """Un suelo cuadrado bajo el modelo: alrededor de las superficies
     elegidas (o de todo el modelo), con margen para las sombras largas."""
+    skip_f = set()
+    for g in skip:
+        if g is not None:
+            skip_f.update(g.mesh.faces)
     if T.cells:
         pts = np.concatenate(T.cells).reshape(-1, 3)
     else:
         chunks = []
-        skip_f = set()
-        for g in skip:
-            if g is not None:
-                skip_f.update(g.mesh.faces)
         for f, m in sitio.scene.iter_world_faces():
             if f not in skip_f:
                 chunks.append(face_tris(f, _mat(m)).reshape(-1, 3))
@@ -755,14 +756,10 @@ def add_ground(T: Targets, sitio, grid: float, radius: float, skip) -> None:
     x1, y1 = hi[0] + margin, hi[1] + margin
     g = max(grid, max(x1 - x0, y1 - y0) / 160.0)    # ≤ ~50 000 celdas
     z0 = float(lo[2])
-    # Fuera del suelo lo que ya está cubierto a ras de suelo: las bases de
-    # los edificios (también los del contexto) y los lotes. Ahí el suelo no
-    # cuenta y su mapa parpadearía contra esas caras.
+    # Fuera del suelo lo que ya está cubierto a ras de suelo (las bases de
+    # los edificios y las caras planas del terreno del modelo): ahí el suelo
+    # no cuenta y su mapa parpadearía contra esas caras.
     flat = []
-    skip_f = set()
-    for gg in skip:
-        if gg is not None and gg is not _ctx_of(skip):
-            skip_f.update(gg.mesh.faces)
     for f, m in sitio.scene.iter_world_faces():
         if f in skip_f:
             continue
@@ -774,12 +771,6 @@ def add_ground(T: Targets, sitio, grid: float, radius: float, skip) -> None:
                 flat.append(t[keep])
     T.add_plane(x0, y0, x1, y1, z0, g,
                 cover=Occluders(np.concatenate(flat)) if flat else None)
-
-
-def _ctx_of(skip):
-    """En ``skip`` van los mapas y, al final, el grupo del contexto: el
-    contexto SÍ cuenta para recortar el suelo bajo sus edificios."""
-    return skip[-1] if skip else None
 
 
 def n_cells(T: Targets) -> int:
@@ -800,7 +791,6 @@ def _targets(sitio, settings):
     T = collect_targets(sitio, target, grid, ground, gr)
     if not T.n_faces or not n_cells(T):
         raise SiteError({"sel": "Selecciona las caras o grupos a analizar.",
-                         "masses": "No hay masas ni lotes visibles.",
                          }.get(target, "No hay superficies visibles que "
                                        "analizar."))
     while n_cells(T) > MAX_CELLS and grid < 20:
@@ -812,7 +802,6 @@ def _targets(sitio, settings):
 def _place(sitio, kind: str, new, message: str) -> None:
     """Deja el mapa nuevo (sustituye al de su clase y oculta el otro)."""
     from .datos import run_step
-    from .geometria import ensure_layer
     key = sitio.store.key
     old = find_group(sitio.scene, key, kind)
     others = [g for g in map_groups(sitio.scene, key) if g is not old]
@@ -875,7 +864,7 @@ def analyse(sitio, settings: dict, progress=None) -> dict | None:
 
 
 def shadow_study(sitio, settings: dict, progress=None) -> dict | None:
-    """Estudio de sombras del día de la sección 4, sobre el modelo y el
+    """Estudio de sombras del día de la sección 2, sobre el modelo y el
     suelo, en la vista principal: horas de sombra por punto."""
     import time
 
