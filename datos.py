@@ -39,7 +39,8 @@ def default_view() -> dict:
         "center": [0.0, 0.0, 0.0],
         "sun": {"months": [6, 3, 12], "band": True, "analemma": True,
                 "day": False, "labels": True, "ray": False,
-                "color": "#b09c45", "ball": "#ff3b30", "diagram": False,
+                "color": "#b09c45", "fill": "#b09c45", "text": "#b09c45",
+                "ball": "#ff3b30", "diagram": False,
                 "font": "Atkinson Hyperlegible", "font_size": 10.0, "font_bold": False},
         "wind": {"show": False, "anim": False, "rose": False, "hourly": False,
                  "height": 8.0, "width": 1.0, "pal": "blue",
@@ -110,6 +111,13 @@ class Store:
         cur = pd.get(key)
         merged = _merge(default_view(), cur)
         sun = merged["sun"]
+        # v1.11 y anteriores: un solo color «Diagrama» para líneas, relleno y
+        # textos. Sin los nuevos, heredan ese color.
+        raw_sun = cur.get("sun") if isinstance(cur, dict) else None
+        if isinstance(raw_sun, dict):
+            for k in ("fill", "text"):
+                if k not in raw_sun:
+                    sun[k] = sun["color"]
         if sun.get("font") not in FONTS:     # p. ej. «Arial» de la v1.10
             sun["font"] = FONTS[0]
         if cur != merged:

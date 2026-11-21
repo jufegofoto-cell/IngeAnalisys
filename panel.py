@@ -769,12 +769,29 @@ class SitePanel(QWidget):
         lay.addWidget(self.day_chk)
         self.ray_chk = self._bind(QCheckBox("Rayo solar al centro"), ["sun", "ray"])
         lay.addWidget(self.ray_chk)
+        # Colores: líneas del diagrama, relleno de la banda y sol.
         self.sun_color = self._bind(ColorButton(), ["sun", "color"])
-        self.sun_color.setToolTip("Color de las líneas, la banda, los puntos y "
-                                  "las etiquetas del diagrama (y la brújula).")
+        self.sun_color.setToolTip("Líneas del diagrama: trayectorias, analemas, "
+                                  "puntos de las horas y brújula.")
+        self.sun_fill = self._bind(ColorButton(), ["sun", "fill"])
+        self.sun_fill.setToolTip("Relleno de la banda solar anual, que destaca "
+                                 "la carta solar.")
         self.sun_ball = self._bind(ColorButton(), ["sun", "ball"])
         self.sun_ball.setToolTip("Color del sol, su rayo y la trayectoria del día.")
-        lay.addLayout(_row("Diagrama", self.sun_color, "Sol", self.sun_ball))
+        lay.addLayout(_row("Líneas", self.sun_color, "Relleno", self.sun_fill,
+                           "Sol", self.sun_ball))
+        # Base del diagrama: brújula y anillos (antes en Visualización).
+        self.compass_chk = self._bind(QCheckBox("Brújula y grados"),
+                                      ["view", "compass"])
+        lay.addWidget(self.compass_chk)
+        rf = wrapping_form(None)
+        self.ring_n = self._bind(_ispin(0, 20), ["rings", "n"])
+        self.ring_step = self._bind(_dspin(1, 1000, 5, 0, " m"), ["rings", "step"])
+        self.ring_color = self._bind(ColorButton(), ["rings", "color"])
+        self.ring_color.setToolTip("Color de los anillos concéntricos.")
+        rf.addRow("Anillos", _row(self.ring_n, QLabel("cada"), self.ring_step,
+                                  self.ring_color))
+        lay.addLayout(rf)
         # Textos del gráfico: horas, meses, grados, puntos cardinales, anillos.
         box = QGroupBox("Textos del diagrama")
         bl = wrapping_form(box)
@@ -791,6 +808,11 @@ class SitePanel(QWidget):
         bl.addRow("Tamaño", _row(self.font_size,
                                  self._bind(QCheckBox("Negrita"),
                                             ["sun", "font_bold"])))
+        self.text_color = self._bind(ColorButton(), ["sun", "text"])
+        self.text_color.setToolTip("Color de las horas, los meses, los grados, "
+                                   "los puntos cardinales y las distancias de los "
+                                   "anillos (la N va en rojo).")
+        bl.addRow("Color", self.text_color)
         narrow(self.font_cb)
         lay.addWidget(box)
 
@@ -980,16 +1002,7 @@ class SitePanel(QWidget):
         lay.setContentsMargins(6, 6, 6, 6)
         self.on = self._bind(QCheckBox("Mostrar el análisis en la vista"), ["on"])
         lay.addWidget(self.on)
-        lay.addWidget(self._bind(QCheckBox("Brújula y grados"), ["view", "compass"]))
-        lay.addWidget(_hint("La brújula y los anillos son la base del diagrama "
-                            "solar: se ven con «Mostrar diagrama solar» "
-                            "(sección 2)."))
         form = wrapping_form(None)
-        form.addRow("Anillos", _row(self._bind(_ispin(0, 20), ["rings", "n"]),
-                                    QLabel("cada"),
-                                    self._bind(_dspin(1, 1000, 5, 0, " m"),
-                                               ["rings", "step"]),
-                                    self._bind(ColorButton(), ["rings", "color"])))
         form.addRow("Escala de etiquetas (vientos y paneles)",
                     self._bind(_dspin(0.4, 2.5, 0.1, 1), ["view", "label_scale"]))
         lay.addLayout(form)

@@ -39,10 +39,13 @@ del proyecto se trabajan con las herramientas de IngeTrazo.
    los analemas, las etiquetas, la trayectoria del día y el rayo; sin él tampoco se dibujan
    la brújula (puntos cardinales y grados) ni los anillos. Al desmarcar *Trayectoria del día*
    se ocultan también el sol del momento y su rayo, y el rayo queda desmarcado. Al iniciar,
-   el sol y su rayo están ocultos (trayectoria del día y rayo desmarcados). Colores: *Diagrama*
-   (líneas, banda, puntos, etiquetas y brújula) y *Sol* (sol, rayo y trayectoria del día).
-   Cuadro **Textos del diagrama**: fuente, tamaño (10 = normal) y negrita de las horas, los
-   meses, los grados, los puntos cardinales y los anillos. Fuentes libres sin serifa
+   el sol y su rayo están ocultos (trayectoria del día y rayo desmarcados). Colores: *Líneas*
+   (trayectorias, analemas, puntos de las horas y brújula), *Relleno* (la banda anual que
+   destaca la carta solar) y *Sol* (sol, rayo y trayectoria del día). Debajo, *Brújula y
+   grados* y los **anillos** concéntricos (número, separación y color).
+   Cuadro **Textos del diagrama**: fuente, tamaño (10 = normal), negrita y color de las horas,
+   los meses, los grados, los puntos cardinales (la N va en rojo) y las distancias de los
+   anillos. Fuentes libres sin serifa
    incluidas en el módulo (no hace falta instalarlas): **Atkinson Hyperlegible**
    (predeterminada), Noto Sans, Inter y Source Sans 3. Debajo, fecha, hora y
    sombras: mueve las sombras reales de IngeTrazo; sol, amanecer/ocaso y clima a esta hora.
@@ -51,9 +54,8 @@ del proyecto se trabajan con las herramientas de IngeTrazo.
    tabla de direcciones y «Aplicar vientos dominantes».
 4. **Datos climáticos** — temperatura y humedad relativa mensual del EPW; guardar los
    gráficos en PNG.
-5. **Visualización** — mostrar/ocultar el análisis, brújula y anillos (visibles con el
-   diagrama solar), escala de las etiquetas de vientos y paneles, y convenciones (leyenda
-   de lo visible).
+5. **Visualización** — mostrar/ocultar el análisis, escala de las etiquetas de vientos y
+   paneles, y convenciones (leyenda de lo visible).
 6. **Radiación solar y sombras** — ambos se calculan sobre el modelo y se ven
    en la vista principal, como mapa de color sobre las superficies con su
    **escala gráfica** en un panel flotante arriba a la derecha (debajo del de

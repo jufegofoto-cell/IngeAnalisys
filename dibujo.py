@@ -267,9 +267,10 @@ class Overlay:
         # diagrama solar: sin «Mostrar diagrama solar» no se dibujan.
         tf = diagram_font(sun)
         if sun.get("diagram", True):
+            text = sun.get("text", sun["color"])
             if view["view"].get("compass", True):
-                self._compass(painter, P, sky, sun["color"], tf)
-            self._rings(painter, P, sky.frame, view["rings"], tf)
+                self._compass(painter, P, sky, sun["color"], text, tf)
+            self._rings(painter, P, sky.frame, view["rings"], text, tf)
         stats = st.stats()
         if view["wind"]["rose"] and stats:
             self._rose(painter, P, sky.frame, view["wind"], stats, ls)
@@ -289,7 +290,7 @@ class Overlay:
         self._rad_legend(painter, viewport, view, ls, notes_box)
 
     # Brújula y anillos ---------------------------------------------------------------
-    def _compass(self, painter, P, sky, color, tf) -> None:
+    def _compass(self, painter, P, sky, color, text_color, tf) -> None:
         fam, size, bold = tf
         painter.setBrush(Qt.NoBrush)
         painter.setPen(QPen(qcolor(color, 0.95), 2.0))
@@ -304,12 +305,13 @@ class Overlay:
         for text, p in sky.deg_labels:
             q = P.one(p)
             if q is not None:
-                _halo_text(painter, q, text, size, color, bold=bold, family=fam)
+                _halo_text(painter, q, text, size, text_color, bold=bold,
+                           family=fam)
         for text, p, red in sky.cardinals:
             q = P.one(p)
             if q is not None:
                 _halo_text(painter, q, text, 1.7 * size,
-                           "#ff5a4f" if red else color, family=fam)
+                           "#ff5a4f" if red else text_color, family=fam)
         xy, ok = P(sky.north_arrow)
         if ok.all():
             painter.setPen(Qt.NoPen)
@@ -321,7 +323,7 @@ class Overlay:
             if ok[i] and ok[i + 1]:
                 painter.drawLine(QPointF(*xy[i]), QPointF(*xy[i + 1]))
 
-    def _rings(self, painter, P, fr, rings, tf) -> None:
+    def _rings(self, painter, P, fr, rings, text_color, tf) -> None:
         fam, size, bold = tf
         n, step = int(rings.get("n", 0)), float(rings.get("step", 25.0))
         if n <= 0 or step <= 0:
@@ -337,13 +339,15 @@ class Overlay:
             for az in (205.0, 25.0):
                 q = P.one(fr.ground(az, r + step * 0.12, 0.35))
                 if q is not None:
-                    _halo_text(painter, q, f"{r:g} m", size, col, bold=bold,
-                               family=fam)
+                    _halo_text(painter, q, f"{r:g} m", size, text_color,
+                               bold=bold, family=fam)
 
     # Cielo -------------------------------------------------------------------------------
     def _sky(self, painter, P, sky, sun, tf) -> None:
         fam, size, bold = tf
-        color = sun["color"]
+        color = sun["color"]                       # líneas
+        fill = sun.get("fill", color)              # relleno de la banda
+        text_color = sun.get("text", color)        # textos
         if sky.band is not None and len(sky.band):
             q = sky.band.reshape(-1, 3)
             xy, ok = P(q)
@@ -356,7 +360,7 @@ class Overlay:
                     path.addPolygon(QPolygonF([QPointF(*c) for c in quad]))
                     path.closeSubpath()
             painter.setPen(Qt.NoPen)
-            painter.setBrush(qcolor(color, 0.16))
+            painter.setBrush(qcolor(fill, 0.16))
             painter.drawPath(path)
         painter.setBrush(Qt.NoBrush)
         painter.setPen(QPen(qcolor(color, 0.38), 1.0))
@@ -379,12 +383,12 @@ class Overlay:
             for (h, _p), (x, y), good in zip(sky.marks, xy, ok):
                 if good:
                     _halo_text(painter, QPointF(x, y), str(h), size,
-                               "#ffffff", bold=bold, family=fam)
+                               text_color, bold=bold, family=fam)
             for text, p in sky.month_labels:
                 q = P.one(p)
                 if q is not None:
-                    _label(painter, q, text, 1.1 * size, color="#111111",
-                           bg=color, family=fam)
+                    _halo_text(painter, q, text, 1.1 * size, text_color,
+                               bold=True, family=fam)
 
     def _sun(self, painter, P, s, view, doy, ls) -> None:
         sun = view["sun"]
@@ -880,7 +884,7 @@ def legend_rows(sitio, counts: bool = False) -> list[dict]:
             rows.append({"sym": "dot", "c": sun["color"],
                          "s": "Trayectorias y horas de sol (día 21)"})
         if sun.get("band"):
-            rows.append({"sym": "band", "c": sun["color"],
+            rows.append({"sym": "band", "c": sun.get("fill", sun["color"]),
                          "s": "Banda solar anual"})
         if sun.get("analemma"):
             rows.append({"sym": "line", "c": sun["color"],
